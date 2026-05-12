@@ -1,0 +1,73 @@
+/* static/css/styles.css */
+:root {
+    --brand: #4f46e5;
+    --brand-soft: #eef2ff;
+    --brand-dark: #3730a3;
+}
+
+body {
+    background-color: #f4f6fb;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Drop zone */
+.drop-zone {
+    background-color: #ffffff;
+    border: 2px dashed #cbd5e1;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.drop-zone:hover,
+.drop-zone.dragover {
+    border-color: var(--brand);
+    background-color: var(--brand-soft);
+    transform: translateY(-1px);
+}
+.drop-zone.has-file {
+    border-style: solid;
+    border-color: #16a34a;
+    background-color: #f0fdf4;
+}
+
+/* KPI cards */
+.kpi-card {
+    border-left: 4px solid var(--brand) !important;
+    transition: transform 0.15s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Chart wrapper: tamaño fijo para que Chart.js encaje en el grid */
+.chart-wrapper {
+    position: relative;
+    height: 320px;
+    width: 100%;
+}
+
+/* Data table */
+#data-table {
+    font-size: 0.875rem;
+}
+#data-table th {
+    background-color: #f8f9fa;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+#data-table td {
+    white-space: nowrap;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Pagination */
+.page-link {
+    cursor: pointer;
+}
+
+footer {
+    margin-top: 3rem;
+}
