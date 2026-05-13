@@ -12,6 +12,7 @@
 
     let currentPage = 1;
     let currentPageSize = parseInt(pageSizeSelect.value, 10) || 25;
+    let currentFilters = null;
 
     function escapeHtml(s) {
         const div = document.createElement('div');
@@ -31,6 +32,11 @@
     }
 
     async function load(page, pageSize) {
+        // Si hay filtros activos, vamos por /api/filter para mantener consistencia.
+        if (currentFilters) {
+            await loadFiltered(page, pageSize);
+            return;
+        }
         const url = '/api/table?page=' + encodeURIComponent(page) + '&page_size=' + encodeURIComponent(pageSize);
         let res;
         try {
@@ -56,6 +62,27 @@
             return;
         }
         render(data);
+    }
+
+    async function loadFiltered(page, pageSize) {
+        let res;
+        try {
+            res = await fetch('/api/filter', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filters: currentFilters,
+                    page: page,
+                    page_size: pageSize,
+                }),
+            });
+        } catch (err) {
+            return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.table) render(data.table);
     }
 
     function render(data) {
@@ -101,6 +128,7 @@
                   data.total_rows.toLocaleString()
                 : 'Sin datos.';
 
+        currentPage = data.page;
         renderPagination(data.page, data.total_pages);
     }
 
@@ -176,6 +204,18 @@
         currentPage = 1;
         load(currentPage, currentPageSize);
     });
+
+    // API pública para filters.js
+    window.DataTable = {
+        get pageSize() { return currentPageSize; },
+        renderPage: function (tablePayload) {
+            if (tablePayload) render(tablePayload);
+        },
+        setFilters: function (filters) {
+            currentFilters = filters && Object.keys(filters || {}).length ? filters : null;
+        },
+        reload: function () { load(currentPage, currentPageSize); },
+    };
 
     load(currentPage, currentPageSize);
 })();

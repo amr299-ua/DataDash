@@ -9,6 +9,19 @@
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+    <!-- Aplicar tema antes de pintar para evitar flash. -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('datadash-theme');
+                if (saved !== 'dark' && saved !== 'light') {
+                    saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                        ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', saved);
+            } catch (_) { /* localStorage podría no estar disponible */ }
+        })();
+    </script>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
@@ -17,9 +30,15 @@
                 <i class="bi bi-bar-chart-line-fill text-info"></i>
                 <span>DataDash</span>
             </a>
-            <span class="navbar-text text-light-emphasis small d-none d-md-inline">
-                Análisis instantáneo de archivos CSV
-            </span>
+            <div class="d-flex align-items-center gap-3 ms-auto">
+                <span class="navbar-text text-light-emphasis small d-none d-md-inline">
+                    Análisis instantáneo de archivos CSV y Excel
+                </span>
+                <button id="theme-toggle" type="button" aria-label="Alternar modo oscuro" title="Alternar modo oscuro">
+                    <i class="bi bi-moon-stars-fill"></i>
+                    <i class="bi bi-sun-fill"></i>
+                </button>
+            </div>
         </div>
     </nav>
 
@@ -37,12 +56,13 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="text-center text-muted small py-4">
+    <footer class="text-center small py-4">
         DataDash · procesamiento local, sin bases de datos.
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
