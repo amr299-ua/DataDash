@@ -38,9 +38,9 @@ The flow is `upload → parse → classify → derive → cache → render`. Eac
    - `data_cleaner.clean` — normalizes null tokens (`""`, `NULL`, `N/A`, `-`, …) to `np.nan`, drops fully-empty rows/columns, strips whitespace. Vectorized; never iterates rows.
    - `column_classifier.classify` — **mutates the DataFrame** by parsing detected datetime columns. Returns `{numeric, categorical, temporal, other}`. Categorical heuristic: `nunique <= 50` OR `nunique/n_rows <= 0.5`. Datetime detection requires ≥80% of a sample to parse AND fails fast for purely-numeric strings (to avoid misclassifying IDs like "12345").
    - `data_loader.optimize_dtypes` — runs *after* classification so it can downcast cleanly.
-3. **Derivations**: `stats.numeric_summary`, `stats.dataset_overview`, `chart_builder.build_charts` (capped at `MAX_CHARTS = 12`), `filter_engine.available_filters` (metadata for the frontend filter UI).
+3. **Derivations**: `stats.numeric_summary`, `stats.dataset_overview`, `chart_builder.build_charts` (capped at `MAX_CHARTS = 12`), `filter_engine.available_filters` (metadata for the frontend filter UI), `correlation.correlation_matrix` (Pearson matrix, capped at `MAX_CORRELATION_COLS = 25`).
 4. **Cache**: `core/cache.py:DatasetCache` is a process-local, thread-safe, TTL-expiring dict. The session cookie stores only an opaque UUID token — the DataFrame itself stays in memory keyed by that token. **Sessions don't survive a process restart** by design.
-5. **Dashboard render**: chart specs are inlined as `<script type="application/json">` and parsed client-side; the table is fetched lazily via `GET /api/table?page=…&page_size=…`.
+5. **Dashboard render**: chart specs are inlined as `<script type="application/json">` and parsed client-side; the table is fetched lazily via `GET /api/table?page=…&page_size=…`. The dashboard uses Bootstrap tabs (Visión General, Análisis Visual, Explorador de Datos). Chart.js instances resize on tab switch via `static/js/tabs.js`.
 
 ### Why the pipeline order is load-bearing
 
@@ -54,16 +54,21 @@ The flow is `upload → parse → classify → derive → cache → render`. Eac
 
 Values fed into the JSON payload are always Python-native (`int`, `float`, `None`, `str`). NaN/Infinity are sanitized via the `_round` helper because `json.dumps(allow_nan=True)` produces invalid JSON that Chart.js would reject. The smoke test asserts `json.dumps(payload, allow_nan=False)` succeeds.
 
+The correlation heatmap (`static/js/heatmap.js`) is pure CSS grid — no Chart.js or external library. Colors adapt to dark/light theme via CSS variables. The heatmap re-renders when filters are applied or the theme changes.
+
 ### Routing surface
 
 - `GET /` — upload form
 - `POST /upload` — process + redirect to `/dashboard`
-- `GET /dashboard` — KPI cards, numeric summary table, charts grid, filters panel, data table shell
+- `GET /dashboard` — KPI cards, numeric summary table, heatmap, charts grid, filters panel, data table shell (tabbed layout)
 - `POST /reset` — discard current dataset
+- `GET /download/csv` — export processed DataFrame as UTF-8 BOM CSV
+- `GET /download/json` — export processed DataFrame as JSON with metadata
 - `GET /api/charts` · `GET /api/stats` · `GET /api/classification` — JSON for the active dataset
+- `GET /api/correlation` — Pearson correlation matrix for numeric columns
 - `GET /api/table?page=<n>&page_size=<n>` (alias `/api/data`) — paginated rows
 - `GET /api/filter_options` — metadata for filter UI (unique values, min/max ranges)
-- `POST /api/filter` — applies filters, returns recalculated overview/stats/charts/table
+- `POST /api/filter` — applies filters, returns recalculated overview/stats/charts/correlation/table
 
 API routes return `404` when no dataset is in session, `410` when the cached entry expired (TTL = 1 h, configurable via `Config.DATASET_TTL_SECONDS`).
 
@@ -73,7 +78,26 @@ API routes return `404` when no dataset is in session, `410` when the cached ent
 - `available_filters(df, classification)` — produces JSON metadata for the frontend filter controls (multi-select for categoricals, min/max for numerics, date range for temporals). Truncates categorical options at 50 (sorted by frequency).
 - `apply_filters(df, filters)` — vectorized boolean mask accumulation. Never mutates the original DataFrame. Returns a filtered copy.
 
-The `POST /api/filter` endpoint accepts a JSON body with `filters`, `page`, and `page_size`, and returns a full recalculated payload (overview, stats, charts, table).
+The `POST /api/filter` endpoint accepts a JSON body with `filters`, `page`, and `page_size`, and returns a full recalculated payload (overview, stats, charts, correlation, table).
+
+### Correlation system
+
+`core/correlation.py` provides `correlation_matrix(df, numeric_cols)`:
+- Computes Pearson correlation on the specified numeric columns.
+- Caps at `MAX_CORRELATION_COLS = 25` to keep the heatmap renderizable.
+- Sanitizes NaN/Inf to `None` for JSON validity. Values clamped to [-1, 1].
+- Returns `{available, columns, matrix, truncated, total_numeric}`.
+
+The heatmap is rendered client-side by `static/js/heatmap.js` using pure CSS grid (no external library). Colors use a divergent ramp (red-negative, blue-positive) that adapts to dark/light theme via CSS variables.
+
+### Caching layer
+
+Flask-Caching (SimpleCache backend) memoizes expensive filter derivations in `routes/api.py`:
+- `_memo(key, builder)` — transparent read-through cache wrapper.
+- `_filters_signature(filters)` — deterministic SHA1 hash of filter dict for cache keys.
+- Filtered DataFrame, overview, stats, charts, correlation, and table are each memoized by `(token, filter_sig)`.
+- Cache is cleared on new upload and on reset (`routes/main.py`).
+- SimpleCache is process-local and does not survive restarts — consistent with the no-database constraint.
 
 ## Constraints to respect
 
@@ -82,3 +106,7 @@ The `POST /api/filter` endpoint accepts a JSON body with `filters`, `page`, and 
 - **All pandas work is vectorized.** Don't introduce `for row in df.iterrows()` loops; the upstream spec forbids it.
 - **Uploads must be deleted after processing** (the `finally` block in `routes/main.py:upload` handles this). Don't add code paths that bypass it.
 - **`MAX_CONTENT_LENGTH = 50 MB`** — bumping it requires also bumping the client-side `MAX_BYTES` in `static/js/upload.js`.
+
+Skills provide specialized instructions and workflows for specific tasks.
+Use the skill tool to load a skill when a task matches its description.
+No skills are currently available.
