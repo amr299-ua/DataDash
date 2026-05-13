@@ -21,13 +21,17 @@
         errorEl.classList.add('d-none');
     }
 
+    const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
     function validate(file) {
         if (!file) return 'Selecciona un archivo.';
+        const name = file.name.toLowerCase();
         const isCsv =
-            file.name.toLowerCase().endsWith('.csv') ||
+            name.endsWith('.csv') ||
             file.type === 'text/csv' ||
             file.type === 'application/vnd.ms-excel';
-        if (!isCsv) return 'Solo se aceptan archivos .csv.';
+        const isXlsx = name.endsWith('.xlsx') || file.type === XLSX_MIME;
+        if (!isCsv && !isXlsx) return 'Solo se aceptan archivos .csv o .xlsx.';
         if (file.size === 0) return 'El archivo está vacío.';
         if (file.size > MAX_BYTES) return 'El archivo supera el límite de 50 MB.';
         return null;

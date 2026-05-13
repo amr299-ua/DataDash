@@ -1,5 +1,10 @@
 # core/data_loader.py
-"""Carga de CSV con sniffing de delimitador y downcast de tipos numéricos."""
+"""Carga de CSV/Excel con sniffing de delimitador y downcast de tipos numéricos.
+
+`load_dataset` actúa como dispatcher agnóstico al tipo de archivo. Una vez cargado
+el DataFrame, el resto del pipeline (clean → classify → optimize_dtypes) no necesita
+saber si el origen fue CSV o XLSX.
+"""
 from __future__ import annotations
 
 import csv
@@ -13,10 +18,17 @@ logger = logging.getLogger(__name__)
 
 _ENCODINGS = ("utf-8", "utf-8-sig", "latin-1", "cp1252")
 _DELIM_CANDIDATES = ",;\t|"
+_EXCEL_EXTENSIONS = {".xlsx"}
+_CSV_EXTENSIONS = {".csv"}
 
 
 class CSVLoadError(Exception):
-    """Error legible para el usuario al cargar un CSV."""
+    """Error legible para el usuario al cargar un archivo tabular."""
+
+
+# Alias retro-compatible: el resto del código usa CSVLoadError, pero el mensaje
+# puede referirse a Excel también.
+DatasetLoadError = CSVLoadError
 
 
 def _read_sample(path: Path, n_bytes: int = 16384) -> Tuple[str, str]:
@@ -84,6 +96,51 @@ def load_csv(path: Path) -> pd.DataFrame:
         raise CSVLoadError("El CSV se leyó pero no contiene datos analizables.")
 
     return df
+
+
+def load_excel(path: Path) -> pd.DataFrame:
+    """Carga la primera hoja de un .xlsx en un DataFrame.
+
+    El motor `openpyxl` se usa explícitamente para evitar ambigüedades con .xls (no soportado).
+    Solo se procesa la primera hoja por simplicidad: replicar el comportamiento de un CSV plano.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise CSVLoadError(f"Archivo no encontrado: {path}")
+    if path.stat().st_size == 0:
+        raise CSVLoadError("El archivo está vacío.")
+
+    logger.info("Excel %s — engine=openpyxl", path.name)
+    try:
+        df = pd.read_excel(path, engine="openpyxl", sheet_name=0)
+    except ImportError as exc:
+        raise CSVLoadError(
+            "Falta la dependencia 'openpyxl' para leer archivos Excel."
+        ) from exc
+    except ValueError as exc:
+        raise CSVLoadError(f"No se pudo leer el archivo Excel: {exc}") from exc
+    except Exception as exc:  # openpyxl puede lanzar BadZipFile, InvalidFileException, etc.
+        raise CSVLoadError(
+            f"Archivo Excel inválido o corrupto: {exc.__class__.__name__}"
+        ) from exc
+
+    if df.empty or df.shape[1] == 0:
+        raise CSVLoadError("El Excel se leyó pero no contiene datos analizables.")
+
+    return df
+
+
+def load_dataset(path: Path) -> pd.DataFrame:
+    """Dispatcher agnóstico al formato. Decide CSV vs Excel por extensión."""
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix in _EXCEL_EXTENSIONS:
+        return load_excel(path)
+    if suffix in _CSV_EXTENSIONS:
+        return load_csv(path)
+    # Si la extensión no es reconocida, asumimos CSV — coherente con el contrato
+    # previo del proyecto, que era CSV-only.
+    return load_csv(path)
 
 
 def optimize_dtypes(df: pd.DataFrame) -> pd.DataFrame:

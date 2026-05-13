@@ -21,7 +21,8 @@ from core.cache import dataset_cache
 from core.chart_builder import build_charts
 from core.column_classifier import classify
 from core.data_cleaner import clean
-from core.data_loader import CSVLoadError, load_csv, optimize_dtypes
+from core.data_loader import CSVLoadError, load_dataset, optimize_dtypes
+from core.filter_engine import available_filters
 from core.stats import dataset_overview, numeric_summary
 
 main_bp = Blueprint("main", __name__)
@@ -41,12 +42,15 @@ def upload():
 
     file = request.files["file"]
     if not file or file.filename == "":
-        flash("Selecciona un archivo CSV antes de continuar.", "danger")
+        flash("Selecciona un archivo CSV o Excel antes de continuar.", "danger")
         return redirect(url_for("main.index"))
 
     filename = secure_filename(file.filename) or "dataset.csv"
-    if not filename.lower().endswith(".csv"):
-        flash("Solo se aceptan archivos con extensión .csv.", "danger")
+    lower = filename.lower()
+    allowed = current_app.config.get("ALLOWED_EXTENSIONS", {"csv"})
+    extension = lower.rsplit(".", 1)[-1] if "." in lower else ""
+    if extension not in allowed:
+        flash("Solo se aceptan archivos .csv o .xlsx.", "danger")
         return redirect(url_for("main.index"))
 
     upload_dir = Path(current_app.config["UPLOAD_FOLDER"])
@@ -55,7 +59,7 @@ def upload():
     file.save(temp_path)
 
     try:
-        df = load_csv(temp_path)
+        df = load_dataset(temp_path)
         df = clean(df)
         if df.empty or df.shape[1] == 0:
             raise CSVLoadError("El archivo no contiene datos analizables tras la limpieza.")
@@ -79,6 +83,7 @@ def upload():
     overview = dataset_overview(df, classification)
     stats = numeric_summary(df, classification["numeric"])
     charts = build_charts(df, classification)
+    filter_options = available_filters(df, classification)
 
     # Si ya había un dataset previo en sesión, lo desechamos.
     previous_token = session.get("dataset_token")
@@ -92,6 +97,7 @@ def upload():
             "overview": overview,
             "stats": stats,
             "charts": charts,
+            "filter_options": filter_options,
             "filename": filename,
         }
     )
@@ -119,6 +125,7 @@ def dashboard():
         stats=payload["stats"],
         charts=payload["charts"],
         classification=payload["classification"],
+        filter_options=payload.get("filter_options", {"categorical": [], "numeric": [], "temporal": []}),
     )
 
 
