@@ -9,17 +9,48 @@
         <h2 class="fw-bold mb-1">
             <i class="bi bi-clipboard-data me-2"></i>{{ filename }}
         </h2>
-        <p class="text-muted mb-0 small">
-            {{ '{:,}'.format(overview.rows) }} filas · {{ overview.columns }} columnas ·
+        <p class="text-muted mb-0 small" id="overview-summary">
+            <span id="overview-rows">{{ '{:,}'.format(overview.rows) }}</span> filas ·
+            {{ overview.columns }} columnas ·
             {{ overview.numeric_count }} numéricas · {{ overview.categorical_count }} categóricas ·
             {{ overview.temporal_count }} temporales
         </p>
     </div>
-    <form action="{{ url_for('main.reset') }}" method="POST">
-        <button class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-counterclockwise me-1"></i> Subir otro CSV
+    <div class="d-flex gap-2">
+        <button id="toggle-filters-btn" class="btn btn-outline-primary" type="button"
+                data-bs-toggle="collapse" data-bs-target="#filters-panel"
+                aria-expanded="false" aria-controls="filters-panel">
+            <i class="bi bi-funnel me-1"></i> Filtros
         </button>
-    </form>
+        <form action="{{ url_for('main.reset') }}" method="POST">
+            <button class="btn btn-outline-secondary" type="submit">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Subir otro archivo
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Filters panel -->
+<div class="collapse mb-4" id="filters-panel">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="fw-semibold mb-0">
+                <i class="bi bi-sliders me-1"></i> Filtros interactivos
+            </h5>
+            <span id="filter-status" class="text-muted small">Sin filtros aplicados</span>
+        </div>
+        <div class="card-body">
+            <div id="filters-container" class="row g-3"></div>
+            <div class="d-flex gap-2 mt-3 justify-content-end">
+                <button id="clear-filters-btn" type="button" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x-circle me-1"></i> Limpiar
+                </button>
+                <button id="apply-filters-btn" type="button" class="btn btn-primary btn-sm">
+                    <i class="bi bi-check2-circle me-1"></i> Aplicar filtros
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- KPI cards -->
@@ -28,7 +59,7 @@
         <div class="card border-0 shadow-sm kpi-card">
             <div class="card-body">
                 <div class="text-muted small text-uppercase">Filas</div>
-                <div class="fs-3 fw-bold">{{ '{:,}'.format(overview.rows) }}</div>
+                <div class="fs-3 fw-bold" id="kpi-rows">{{ '{:,}'.format(overview.rows) }}</div>
             </div>
         </div>
     </div>
@@ -36,7 +67,7 @@
         <div class="card border-0 shadow-sm kpi-card">
             <div class="card-body">
                 <div class="text-muted small text-uppercase">Columnas</div>
-                <div class="fs-3 fw-bold">{{ overview.columns }}</div>
+                <div class="fs-3 fw-bold" id="kpi-cols">{{ overview.columns }}</div>
             </div>
         </div>
     </div>
@@ -44,7 +75,7 @@
         <div class="card border-0 shadow-sm kpi-card">
             <div class="card-body">
                 <div class="text-muted small text-uppercase">Valores nulos</div>
-                <div class="fs-3 fw-bold">{{ '{:,}'.format(overview.total_nulls) }}</div>
+                <div class="fs-3 fw-bold" id="kpi-nulls">{{ '{:,}'.format(overview.total_nulls) }}</div>
             </div>
         </div>
     </div>
@@ -52,20 +83,19 @@
         <div class="card border-0 shadow-sm kpi-card">
             <div class="card-body">
                 <div class="text-muted small text-uppercase">Memoria</div>
-                <div class="fs-3 fw-bold">{{ overview.memory_mb }} <span class="fs-6 text-muted">MB</span></div>
+                <div class="fs-3 fw-bold"><span id="kpi-memory">{{ overview.memory_mb }}</span> <span class="fs-6 text-muted">MB</span></div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Numeric stats table -->
-{% if stats %}
-<div class="card border-0 shadow-sm mb-4">
+<div class="card border-0 shadow-sm mb-4" id="stats-card" {% if not stats %}style="display:none"{% endif %}>
     <div class="card-header bg-white border-0 d-flex align-items-center">
         <h5 class="fw-semibold mb-0"><i class="bi bi-123 me-1"></i> Resumen de variables numéricas</h5>
     </div>
     <div class="table-responsive">
-        <table class="table table-sm mb-0 align-middle">
+        <table class="table table-sm mb-0 align-middle" id="stats-table">
             <thead class="table-light">
                 <tr>
                     <th>Columna</th>
@@ -78,7 +108,7 @@
                     <th>Nulos</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="stats-tbody">
                 {% for row in stats %}
                 <tr>
                     <td class="fw-semibold">{{ row.column }}</td>
@@ -95,31 +125,14 @@
         </table>
     </div>
 </div>
-{% endif %}
 
 <!-- Charts grid -->
 <div class="mb-4">
     <h5 class="fw-semibold mb-3"><i class="bi bi-bar-chart-line me-1"></i> Visualizaciones</h5>
-    {% if charts %}
-    <div class="row g-3" id="charts-grid">
-        {% for chart in charts %}
-        <div class="col-12 col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6 class="card-title fw-semibold mb-3">{{ chart.title }}</h6>
-                    <div class="chart-wrapper">
-                        <canvas id="{{ chart.id }}"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="alert alert-info">
+    <div id="charts-grid" class="row g-3"></div>
+    <div id="charts-empty" class="alert alert-info d-none">
         No se pudieron generar gráficos automáticos para este conjunto de datos.
     </div>
-    {% endif %}
 </div>
 
 <!-- Data table -->
@@ -151,10 +164,14 @@
 </div>
 
 <script id="charts-payload" type="application/json">{{ charts | tojson }}</script>
+<script id="filter-options-payload" type="application/json">{{ filter_options | tojson }}</script>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filters.js') }}"></script>
 <script src="{{ url_for('static', filename='js/table.js') }}"></script>
 {% endblock %}

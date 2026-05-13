@@ -1,0 +1,162 @@
+# core/filter_engine.py
+"""Filtrado vectorizado sobre el DataFrame cacheado.
+
+`available_filters` produce la metadata que la UI usa para pintar controles
+(multi-select para categóricas, min/max para numéricas, rango de fechas para
+temporales). `apply_filters` consume el diccionario que envía el frontend y
+devuelve un DataFrame filtrado SIN mutar el original.
+
+Reglas de filtrado:
+- Categóricas: lista de valores aceptados. Si está vacía/ausente, no filtra.
+- Numéricas: `{"min": <float|None>, "max": <float|None>}` — None = sin límite.
+- Temporales: `{"start": <ISO string|None>, "end": <ISO string|None>}` — inclusivo.
+
+Filtros desconocidos o columnas inexistentes se ignoran silenciosamente (defensivo).
+"""
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+import numpy as np
+import pandas as pd
+
+# Límite de valores únicos que exponemos al frontend por columna categórica.
+# Más allá de esto, la UI ofrece un input de texto libre (substring match).
+CATEGORICAL_MAX_OPTIONS = 50
+
+
+def available_filters(
+    df: pd.DataFrame, classification: Dict[str, List[str]]
+) -> Dict[str, Any]:
+    """Devuelve metadata serializable JSON para alimentar los controles del frontend."""
+    filters: Dict[str, Any] = {
+        "categorical": [],
+        "numeric": [],
+        "temporal": [],
+    }
+
+    for col in classification.get("categorical", []):
+        if col not in df.columns:
+            continue
+        series = df[col].dropna()
+        if series.empty:
+            continue
+        uniques = series.astype(str).unique().tolist()
+        truncated = len(uniques) > CATEGORICAL_MAX_OPTIONS
+        if truncated:
+            # Ordena por frecuencia y toma los más comunes; mejor UX que orden alfabético.
+            top = series.astype(str).value_counts().head(CATEGORICAL_MAX_OPTIONS).index.tolist()
+            options = [str(v) for v in top]
+        else:
+            options = sorted([str(v) for v in uniques])
+        filters["categorical"].append(
+            {
+                "column": col,
+                "options": options,
+                "truncated": truncated,
+            }
+        )
+
+    for col in classification.get("numeric", []):
+        if col not in df.columns:
+            continue
+        series = df[col].dropna()
+        if series.empty:
+            continue
+        try:
+            cmin = float(series.min())
+            cmax = float(series.max())
+        except (TypeError, ValueError):
+            continue
+        if np.isnan(cmin) or np.isnan(cmax) or np.isinf(cmin) or np.isinf(cmax):
+            continue
+        filters["numeric"].append(
+            {
+                "column": col,
+                "min": cmin,
+                "max": cmax,
+            }
+        )
+
+    for col in classification.get("temporal", []):
+        if col not in df.columns:
+            continue
+        series = df[col].dropna()
+        if series.empty:
+            continue
+        try:
+            tmin = pd.Timestamp(series.min())
+            tmax = pd.Timestamp(series.max())
+        except (TypeError, ValueError):
+            continue
+        if pd.isna(tmin) or pd.isna(tmax):
+            continue
+        filters["temporal"].append(
+            {
+                "column": col,
+                "min": tmin.isoformat(),
+                "max": tmax.isoformat(),
+            }
+        )
+
+    return filters
+
+
+def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
+    """Aplica el diccionario de filtros del frontend de forma vectorizada.
+
+    Construye una máscara booleana acumulada con `&=` para mantener O(n) en filas.
+    Nunca itera por filas.
+    """
+    if not filters or not isinstance(filters, dict):
+        return df
+
+    mask = pd.Series(True, index=df.index)
+
+    # Categóricos — { col: [valor1, valor2, ...] }
+    for col, allowed in (filters.get("categorical") or {}).items():
+        if col not in df.columns or not allowed:
+            continue
+        if not isinstance(allowed, (list, tuple, set)):
+            continue
+        allowed_str = {str(v) for v in allowed}
+        col_str = df[col].astype("string")
+        mask &= col_str.isin(allowed_str)
+
+    # Numéricos — { col: {"min": x, "max": y} }
+    for col, bounds in (filters.get("numeric") or {}).items():
+        if col not in df.columns or not isinstance(bounds, dict):
+            continue
+        col_num = pd.to_numeric(df[col], errors="coerce")
+        lo = bounds.get("min")
+        hi = bounds.get("max")
+        if lo is not None:
+            try:
+                mask &= col_num >= float(lo)
+            except (TypeError, ValueError):
+                pass
+        if hi is not None:
+            try:
+                mask &= col_num <= float(hi)
+            except (TypeError, ValueError):
+                pass
+
+    # Temporales — { col: {"start": iso, "end": iso} }
+    for col, bounds in (filters.get("temporal") or {}).items():
+        if col not in df.columns or not isinstance(bounds, dict):
+            continue
+        col_dt = pd.to_datetime(df[col], errors="coerce")
+        start = bounds.get("start")
+        end = bounds.get("end")
+        if start:
+            try:
+                mask &= col_dt >= pd.Timestamp(start)
+            except (TypeError, ValueError):
+                pass
+        if end:
+            try:
+                mask &= col_dt <= pd.Timestamp(end)
+            except (TypeError, ValueError):
+                pass
+
+    return df.loc[mask].reset_index(drop=True)
