@@ -16,12 +16,30 @@
             {{ overview.temporal_count }} temporales
         </p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
         <button id="toggle-filters-btn" class="btn btn-outline-primary" type="button"
                 data-bs-toggle="collapse" data-bs-target="#filters-panel"
                 aria-expanded="false" aria-controls="filters-panel">
             <i class="bi bi-funnel me-1"></i> Filtros
         </button>
+        <div class="dropdown">
+            <button class="btn btn-outline-success dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-cloud-download me-1"></i> Descargar limpio
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('main.download_csv') }}">
+                        <i class="bi bi-filetype-csv me-1"></i> CSV
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('main.download_json') }}">
+                        <i class="bi bi-filetype-json me-1"></i> JSON
+                    </a>
+                </li>
+            </ul>
+        </div>
         <form action="{{ url_for('main.reset') }}" method="POST">
             <button class="btn btn-outline-secondary" type="submit">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Subir otro archivo
@@ -30,7 +48,7 @@
     </div>
 </div>
 
-<!-- Filters panel -->
+<!-- Filters panel (aplica a todas las pestañas) -->
 <div class="collapse mb-4" id="filters-panel">
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -53,128 +71,172 @@
     </div>
 </div>
 
-<!-- KPI cards -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm kpi-card">
+<!-- Navegación por pestañas -->
+<ul class="nav nav-tabs mb-3" id="dashboard-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-overview-btn" data-bs-toggle="tab"
+                data-bs-target="#tab-overview" type="button" role="tab"
+                aria-controls="tab-overview" aria-selected="true">
+            <i class="bi bi-speedometer2 me-1"></i> Visión General
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-charts-btn" data-bs-toggle="tab"
+                data-bs-target="#tab-charts" type="button" role="tab"
+                aria-controls="tab-charts" aria-selected="false">
+            <i class="bi bi-bar-chart-line me-1"></i> Análisis Visual
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-table-btn" data-bs-toggle="tab"
+                data-bs-target="#tab-table" type="button" role="tab"
+                aria-controls="tab-table" aria-selected="false">
+            <i class="bi bi-table me-1"></i> Explorador de Datos
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="dashboard-tabs-content">
+    <!-- ============================== -->
+    <!-- TAB 1: Visión General           -->
+    <!-- ============================== -->
+    <div class="tab-pane fade show active" id="tab-overview" role="tabpanel"
+         aria-labelledby="tab-overview-btn">
+
+        <!-- KPI cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm kpi-card">
+                    <div class="card-body">
+                        <div class="text-muted small text-uppercase">Filas</div>
+                        <div class="fs-3 fw-bold" id="kpi-rows">{{ '{:,}'.format(overview.rows) }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm kpi-card">
+                    <div class="card-body">
+                        <div class="text-muted small text-uppercase">Columnas</div>
+                        <div class="fs-3 fw-bold" id="kpi-cols">{{ overview.columns }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm kpi-card">
+                    <div class="card-body">
+                        <div class="text-muted small text-uppercase">Valores nulos</div>
+                        <div class="fs-3 fw-bold" id="kpi-nulls">{{ '{:,}'.format(overview.total_nulls) }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm kpi-card">
+                    <div class="card-body">
+                        <div class="text-muted small text-uppercase">Memoria</div>
+                        <div class="fs-3 fw-bold"><span id="kpi-memory">{{ overview.memory_mb }}</span> <span class="fs-6 text-muted">MB</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Numeric stats table -->
+        <div class="card border-0 shadow-sm mb-4" id="stats-card" {% if not stats %}style="display:none"{% endif %}>
+            <div class="card-header bg-white border-0 d-flex align-items-center">
+                <h5 class="fw-semibold mb-0"><i class="bi bi-123 me-1"></i> Resumen de variables numéricas</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle" id="stats-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Columna</th>
+                            <th>Conteo</th>
+                            <th>Media</th>
+                            <th>Mediana</th>
+                            <th>Desv. Est.</th>
+                            <th>Mín.</th>
+                            <th>Máx.</th>
+                            <th>Nulos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stats-tbody">
+                        {% for row in stats %}
+                        <tr>
+                            <td class="fw-semibold">{{ row.column }}</td>
+                            <td>{{ '{:,}'.format(row.count) }}</td>
+                            <td>{{ row.mean if row.mean is not none else '—' }}</td>
+                            <td>{{ row.median if row.median is not none else '—' }}</td>
+                            <td>{{ row.std if row.std is not none else '—' }}</td>
+                            <td>{{ row.min if row.min is not none else '—' }}</td>
+                            <td>{{ row.max if row.max is not none else '—' }}</td>
+                            <td>{{ '{:,}'.format(row.nulls) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Heatmap de correlación -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="fw-semibold mb-0">
+                    <i class="bi bi-grid-3x3 me-1"></i> Matriz de correlación (Pearson)
+                </h5>
+                <span class="small text-muted">
+                    Valores entre -1 y +1; rojo = correlación negativa, azul = positiva.
+                </span>
+            </div>
             <div class="card-body">
-                <div class="text-muted small text-uppercase">Filas</div>
-                <div class="fs-3 fw-bold" id="kpi-rows">{{ '{:,}'.format(overview.rows) }}</div>
+                <div id="heatmap-container"></div>
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm kpi-card">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase">Columnas</div>
-                <div class="fs-3 fw-bold" id="kpi-cols">{{ overview.columns }}</div>
+
+    <!-- ============================== -->
+    <!-- TAB 2: Análisis Visual         -->
+    <!-- ============================== -->
+    <div class="tab-pane fade" id="tab-charts" role="tabpanel"
+         aria-labelledby="tab-charts-btn">
+        <div class="mb-4">
+            <h5 class="fw-semibold mb-3"><i class="bi bi-bar-chart-line me-1"></i> Visualizaciones interactivas</h5>
+            <div id="charts-grid" class="row g-3"></div>
+            <div id="charts-empty" class="alert alert-info d-none">
+                No se pudieron generar gráficos automáticos para este conjunto de datos.
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm kpi-card">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase">Valores nulos</div>
-                <div class="fs-3 fw-bold" id="kpi-nulls">{{ '{:,}'.format(overview.total_nulls) }}</div>
+
+    <!-- ============================== -->
+    <!-- TAB 3: Explorador de Datos     -->
+    <!-- ============================== -->
+    <div class="tab-pane fade" id="tab-table" role="tabpanel"
+         aria-labelledby="tab-table-btn">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="fw-semibold mb-0"><i class="bi bi-table me-1"></i> Vista previa de los datos</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <label for="page-size" class="small text-muted mb-0">Por página:</label>
+                    <select id="page-size" class="form-select form-select-sm" style="width:auto">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle" id="data-table">
+                    <thead class="table-light"></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span id="page-info" class="text-muted small">—</span>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+                </nav>
             </div>
         </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 shadow-sm kpi-card">
-            <div class="card-body">
-                <div class="text-muted small text-uppercase">Memoria</div>
-                <div class="fs-3 fw-bold"><span id="kpi-memory">{{ overview.memory_mb }}</span> <span class="fs-6 text-muted">MB</span></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Numeric stats table -->
-<div class="card border-0 shadow-sm mb-4" id="stats-card" {% if not stats %}style="display:none"{% endif %}>
-    <div class="card-header bg-white border-0 d-flex align-items-center">
-        <h5 class="fw-semibold mb-0"><i class="bi bi-123 me-1"></i> Resumen de variables numéricas</h5>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-sm mb-0 align-middle" id="stats-table">
-            <thead class="table-light">
-                <tr>
-                    <th>Columna</th>
-                    <th>Conteo</th>
-                    <th>Media</th>
-                    <th>Mediana</th>
-                    <th>Desv. Est.</th>
-                    <th>Mín.</th>
-                    <th>Máx.</th>
-                    <th>Nulos</th>
-                </tr>
-            </thead>
-            <tbody id="stats-tbody">
-                {% for row in stats %}
-                <tr>
-                    <td class="fw-semibold">{{ row.column }}</td>
-                    <td>{{ '{:,}'.format(row.count) }}</td>
-                    <td>{{ row.mean if row.mean is not none else '—' }}</td>
-                    <td>{{ row.median if row.median is not none else '—' }}</td>
-                    <td>{{ row.std if row.std is not none else '—' }}</td>
-                    <td>{{ row.min if row.min is not none else '—' }}</td>
-                    <td>{{ row.max if row.max is not none else '—' }}</td>
-                    <td>{{ '{:,}'.format(row.nulls) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Heatmap de correlación -->
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h5 class="fw-semibold mb-0">
-            <i class="bi bi-grid-3x3 me-1"></i> Matriz de correlación (Pearson)
-        </h5>
-        <span class="small text-muted">
-            Valores entre -1 y +1; rojo = correlación negativa, azul = positiva.
-        </span>
-    </div>
-    <div class="card-body">
-        <div id="heatmap-container"></div>
-    </div>
-</div>
-
-<!-- Charts grid -->
-<div class="mb-4">
-    <h5 class="fw-semibold mb-3"><i class="bi bi-bar-chart-line me-1"></i> Visualizaciones</h5>
-    <div id="charts-grid" class="row g-3"></div>
-    <div id="charts-empty" class="alert alert-info d-none">
-        No se pudieron generar gráficos automáticos para este conjunto de datos.
-    </div>
-</div>
-
-<!-- Data table -->
-<div class="card border-0 shadow-sm">
-    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h5 class="fw-semibold mb-0"><i class="bi bi-table me-1"></i> Vista previa de los datos</h5>
-        <div class="d-flex align-items-center gap-2">
-            <label for="page-size" class="small text-muted mb-0">Por página:</label>
-            <select id="page-size" class="form-select form-select-sm" style="width:auto">
-                <option value="10">10</option>
-                <option value="25" selected>25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-sm table-hover mb-0 align-middle" id="data-table">
-            <thead class="table-light"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span id="page-info" class="text-muted small">—</span>
-        <nav>
-            <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
-        </nav>
     </div>
 </div>
 
@@ -191,4 +253,5 @@
 <script src="{{ url_for('static', filename='js/heatmap.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filters.js') }}"></script>
 <script src="{{ url_for('static', filename='js/table.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tabs.js') }}"></script>
 {% endblock %}

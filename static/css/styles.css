@@ -258,6 +258,29 @@ footer {
     color: var(--text-muted);
 }
 
+/* ---------- Pestañas (Bootstrap nav-tabs override) ---------- */
+.nav-tabs {
+    border-bottom-color: var(--border);
+}
+.nav-tabs .nav-link {
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+    background-color: transparent;
+}
+.nav-tabs .nav-link:hover {
+    color: var(--text);
+    border-color: var(--border) var(--border) var(--border);
+    background-color: var(--surface-hover);
+}
+.nav-tabs .nav-link.active {
+    background-color: var(--surface);
+    color: var(--brand);
+    border-color: var(--border) var(--border) var(--surface);
+    font-weight: 600;
+}
+
 /* ---------- Heatmap de correlación (CSS-grid puro) ---------- */
 .hm-grid {
     display: grid;

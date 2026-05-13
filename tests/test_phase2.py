@@ -2,10 +2,15 @@
 """Tests unitarios para las funcionalidades de la Fase 2:
 
     - core.correlation.correlation_matrix → matriz Pearson sanitizada
+    - rutas /download/csv y /download/json → contenido y headers correctos
 
 Todos los tests son locales y no requieren red ni Docker.
 """
 from __future__ import annotations
+
+import io
+import json
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -105,3 +110,104 @@ class TestCorrelationMatrix:
         result = correlation_matrix(df, ["x", "y", "z"])
         assert result["available"] is True
         assert result["columns"] == ["x", "y"]
+
+
+# ----------------------- Flask end-to-end (download) -----------------------
+
+@pytest.fixture
+def app_client() -> Tuple[object, object]:
+    """Crea una app Flask aislada con un dataset preinyectado en sesión."""
+    from app import create_app
+    from core.cache import dataset_cache
+
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["SECRET_KEY"] = "test-secret"
+
+    df = pd.DataFrame({
+        "id": [1, 2, 3, 4, 5],
+        "precio": [10.5, 20.0, 30.5, np.nan, 21.0],
+        "categoria": ["A", "B", "A", "C", "B"],
+        "fecha": pd.to_datetime(
+            ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]
+        ),
+    })
+    classification = {
+        "numeric": ["id", "precio"],
+        "categorical": ["categoria"],
+        "temporal": ["fecha"],
+        "other": [],
+    }
+    payload = {
+        "df": df,
+        "classification": classification,
+        "overview": {"rows": 5, "columns": 4, "numeric_count": 2,
+                     "categorical_count": 1, "temporal_count": 1, "other_count": 0,
+                     "total_nulls": 1, "memory_mb": 0.001},
+        "stats": [],
+        "charts": [],
+        "filter_options": {"categorical": [], "numeric": [], "temporal": []},
+        "correlation": correlation_matrix(df, classification["numeric"]),
+        "filename": "test_dataset.csv",
+    }
+    token = dataset_cache.put(payload)
+
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["dataset_token"] = token
+    yield app, client
+    dataset_cache.discard(token)
+
+
+class TestDownloadEndpoints:
+    def test_csv_download_returns_text_csv(self, app_client):
+        _, client = app_client
+        resp = client.get("/download/csv")
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["Content-Type"]
+        assert "test_dataset_cleaned.csv" in resp.headers["Content-Disposition"]
+        body = resp.get_data(as_text=True)
+        # El primer carácter es BOM (﻿) para Excel; lo descartamos al parsear.
+        body_clean = body.lstrip("﻿")
+        first_line = body_clean.splitlines()[0]
+        for col in ("id", "precio", "categoria", "fecha"):
+            assert col in first_line
+
+    def test_csv_round_trip_preserves_row_count(self, app_client):
+        _, client = app_client
+        resp = client.get("/download/csv")
+        body = resp.get_data(as_text=True).lstrip("﻿")
+        df_round = pd.read_csv(io.StringIO(body))
+        assert len(df_round) == 5
+        # Las nulas siguen siendo nulas tras el round-trip.
+        assert df_round["precio"].isna().sum() == 1
+
+    def test_json_download_structure(self, app_client):
+        _, client = app_client
+        resp = client.get("/download/json")
+        assert resp.status_code == 200
+        assert "application/json" in resp.headers["Content-Type"]
+        assert "test_dataset_cleaned.json" in resp.headers["Content-Disposition"]
+        body = json.loads(resp.get_data(as_text=True))
+        assert "meta" in body and "data" in body
+        assert body["meta"]["rows"] == 5
+        assert body["meta"]["filename"] == "test_dataset.csv"
+        assert len(body["data"]) == 5
+        # La clasificación se incluye para que el consumidor sepa los tipos.
+        assert body["meta"]["classification"]["numeric"] == ["id", "precio"]
+
+    def test_download_404_without_active_dataset(self):
+        from app import create_app
+        app = create_app()
+        client = app.test_client()
+        resp = client.get("/download/csv")
+        # No hay token en sesión → main_bp aborta con 404.
+        assert resp.status_code == 404
+
+    def test_correlation_endpoint(self, app_client):
+        _, client = app_client
+        resp = client.get("/api/correlation")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["available"] is True
+        assert set(data["columns"]) == {"id", "precio"}

@@ -2,16 +2,21 @@
 """Rutas de cara al usuario: upload y dashboard."""
 from __future__ import annotations
 
+import io
+import json
 import logging
 from pathlib import Path
 
 from flask import (
     Blueprint,
+    Response,
+    abort,
     current_app,
     flash,
     redirect,
     render_template,
     request,
+    send_file,
     session,
     url_for,
 )
@@ -87,10 +92,17 @@ def upload():
     filter_options = available_filters(df, classification)
     correlation = correlation_matrix(df, classification["numeric"])
 
-    # Si ya había un dataset previo en sesión, lo desechamos.
+    # Si ya había un dataset previo en sesión, lo desechamos y purgamos la caché
+    # de derivaciones (claves indexadas por token previo).
     previous_token = session.get("dataset_token")
     if previous_token:
         dataset_cache.discard(previous_token)
+    flask_cache = current_app.config.get("FLASK_CACHE_INSTANCE")
+    if flask_cache is not None:
+        try:
+            flask_cache.clear()
+        except Exception:  # noqa: BLE001
+            logger.warning("No se pudo limpiar Flask-Caching tras nuevo upload.")
 
     token = dataset_cache.put(
         {
@@ -138,4 +150,74 @@ def reset():
     token = session.pop("dataset_token", None)
     if token:
         dataset_cache.discard(token)
+    flask_cache = current_app.config.get("FLASK_CACHE_INSTANCE")
+    if flask_cache is not None:
+        try:
+            flask_cache.clear()
+        except Exception:  # noqa: BLE001
+            logger.warning("No se pudo limpiar Flask-Caching en reset.")
     return redirect(url_for("main.index"))
+
+
+# ----------------------------------------------------------------------
+# Descargas del dataset procesado (CSV/JSON)
+# ----------------------------------------------------------------------
+
+def _active_payload_or_404():
+    token = session.get("dataset_token")
+    if not token:
+        abort(404, description="No hay dataset activo.")
+    payload = dataset_cache.get(token)
+    if payload is None:
+        abort(410, description="El dataset ha expirado.")
+    return payload
+
+
+def _processed_stem(original: str) -> str:
+    """Deriva un nombre amigable: 'ventas.xlsx' → 'ventas_cleaned'."""
+    base = secure_filename(original or "dataset") or "dataset"
+    stem = base.rsplit(".", 1)[0] if "." in base else base
+    return f"{stem}_cleaned"
+
+
+@main_bp.get("/download/csv")
+def download_csv():
+    payload = _active_payload_or_404()
+    df = payload["df"]
+    # BytesIO con UTF-8 BOM para que Excel abra acentos sin desconfiguraciones.
+    buf = io.BytesIO()
+    buf.write("﻿".encode("utf-8"))
+    df.to_csv(buf, index=False, encoding="utf-8")
+    buf.seek(0)
+    filename = _processed_stem(payload.get("filename", "dataset")) + ".csv"
+    # send_file añade charset automáticamente para mimetypes text/*, así que
+    # pasamos sólo el tipo base para evitar `charset=utf-8; charset=utf-8`.
+    return send_file(
+        buf,
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@main_bp.get("/download/json")
+def download_json():
+    payload = _active_payload_or_404()
+    df = payload["df"]
+    # to_json maneja fechas y NaN correctamente; usamos orient=records para una
+    # estructura amigable al consumir el archivo en otras herramientas.
+    body = df.to_json(orient="records", date_format="iso", force_ascii=False)
+    # Envolvemos en {data: [...], meta: {...}} para incluir contexto de procesado.
+    meta = {
+        "filename": payload.get("filename"),
+        "rows": int(len(df)),
+        "columns": [str(c) for c in df.columns],
+        "classification": payload.get("classification", {}),
+    }
+    wrapper = '{"meta":' + json.dumps(meta, ensure_ascii=False) + ',"data":' + body + '}'
+    filename = _processed_stem(payload.get("filename", "dataset")) + ".json"
+    return Response(
+        wrapper,
+        mimetype="application/json; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
