@@ -6,8 +6,18 @@ import logging
 import os
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
+from flask_caching import Cache
 
 from config import Config
+
+
+# Cache global compartido entre blueprints. Backend SimpleCache (en memoria);
+# no se persiste a disco — coherente con la política "sin base de datos".
+cache = Cache(config={
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 600,  # 10 minutos para derivaciones de filtros
+    "CACHE_THRESHOLD": 500,        # cap aproximado de entradas antes de evict
+})
 
 
 def create_app(config_class: type[Config] = Config) -> Flask:
@@ -20,6 +30,10 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+
+    # Flask-Caching: inicializa el SimpleCache y lo deja accesible para las rutas.
+    cache.init_app(app)
+    app.config["FLASK_CACHE_INSTANCE"] = cache
 
     # Importes diferidos para evitar import circular con blueprints que usan config.
     from routes.api import api_bp

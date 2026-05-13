@@ -285,6 +285,11 @@
         if (window.DataTable && typeof window.DataTable.renderPage === 'function') {
             window.DataTable.renderPage(data.table);
         }
+        // Persistimos los filtros activos en DataTable para que la paginación
+        // posterior siga respetando el subconjunto.
+        if (window.DataTable && typeof window.DataTable.setFilters === 'function') {
+            window.DataTable.setFilters(count > 0 ? filters : null);
+        }
 
         if (count === 0) {
             setStatus('Sin filtros aplicados', 'inactive');

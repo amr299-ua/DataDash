@@ -5,6 +5,7 @@ pandas>=2.1.0,<3.0.0
 numpy>=1.24.0,<3.0.0
 python-dateutil>=2.8.2
 openpyxl>=3.1.0,<4.0.0
+Flask-Caching>=2.1.0,<3.0.0
 
 # --- Solo para tests locales (no usado en producción) ---
 pytest>=8.0.0,<9.0.0

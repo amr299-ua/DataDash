@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 from typing import Tuple
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -117,12 +118,15 @@ class TestCorrelationMatrix:
 @pytest.fixture
 def app_client() -> Tuple[object, object]:
     """Crea una app Flask aislada con un dataset preinyectado en sesión."""
-    from app import create_app
+    from app import cache as flask_cache, create_app
     from core.cache import dataset_cache
 
     app = create_app()
     app.config["TESTING"] = True
     app.config["SECRET_KEY"] = "test-secret"
+
+    # Limpia caches por si otro test los dejó sucios.
+    flask_cache.clear()
 
     df = pd.DataFrame({
         "id": [1, 2, 3, 4, 5],
@@ -157,6 +161,7 @@ def app_client() -> Tuple[object, object]:
         sess["dataset_token"] = token
     yield app, client
     dataset_cache.discard(token)
+    flask_cache.clear()
 
 
 class TestDownloadEndpoints:
@@ -211,3 +216,73 @@ class TestDownloadEndpoints:
         data = resp.get_json()
         assert data["available"] is True
         assert set(data["columns"]) == {"id", "precio"}
+
+
+class TestFlaskCaching:
+    def test_filter_response_is_memoized(self, app_client):
+        """Segunda llamada con mismos filtros debe golpear la caché Flask-Caching."""
+        from app import cache as flask_cache
+
+        app, client = app_client
+        flask_cache.clear()
+
+        # Espiamos build_charts: si la caché funciona, debe llamarse 1 sola vez.
+        with patch("routes.api.build_charts", wraps=__import__("core.chart_builder", fromlist=["build_charts"]).build_charts) as spy:
+            filters_body = {"filters": {}, "page": 1, "page_size": 25}
+            r1 = client.post(
+                "/api/filter",
+                data=json.dumps(filters_body),
+                content_type="application/json",
+            )
+            r2 = client.post(
+                "/api/filter",
+                data=json.dumps(filters_body),
+                content_type="application/json",
+            )
+            assert r1.status_code == 200
+            assert r2.status_code == 200
+            # Mismo payload → caché golpeada en la segunda llamada.
+            assert spy.call_count == 1, f"build_charts se llamó {spy.call_count} veces (esperado 1)"
+
+    def test_different_filters_bypass_cache(self, app_client):
+        """Filtros distintos producen claves distintas → recomputo."""
+        from app import cache as flask_cache
+
+        app, client = app_client
+        flask_cache.clear()
+
+        with patch("routes.api.build_charts", wraps=__import__("core.chart_builder", fromlist=["build_charts"]).build_charts) as spy:
+            r1 = client.post(
+                "/api/filter",
+                data=json.dumps({"filters": {}, "page": 1, "page_size": 25}),
+                content_type="application/json",
+            )
+            r2 = client.post(
+                "/api/filter",
+                data=json.dumps({
+                    "filters": {"categorical": {"categoria": ["A"]}},
+                    "page": 1, "page_size": 25,
+                }),
+                content_type="application/json",
+            )
+            assert r1.status_code == 200 and r2.status_code == 200
+            assert spy.call_count == 2
+
+    def test_cache_cleared_on_reset(self, app_client):
+        from app import cache as flask_cache
+
+        app, client = app_client
+
+        # Pre-popular caché.
+        client.post(
+            "/api/filter",
+            data=json.dumps({"filters": {}, "page": 1, "page_size": 25}),
+            content_type="application/json",
+        )
+        # Ahora reset.
+        resp = client.post("/reset")
+        assert resp.status_code in (302, 303)
+        # Después del reset, no debería haber entradas en SimpleCache.
+        store = getattr(flask_cache.cache, "_cache", None)
+        if store is not None:
+            assert len(store) == 0

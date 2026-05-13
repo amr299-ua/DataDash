@@ -2,7 +2,11 @@
 """API JSON interna que alimenta el dashboard."""
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, request, session
+import hashlib
+import json
+from typing import Any, Dict, Tuple
+
+from flask import Blueprint, abort, current_app, jsonify, request, session
 
 from core.cache import dataset_cache
 from core.chart_builder import build_charts
@@ -14,22 +18,50 @@ from core.table_builder import page as build_page
 api_bp = Blueprint("api", __name__)
 
 
-def _current_payload():
+def _current_token_and_payload() -> Tuple[str, Dict[str, Any]]:
     token = session.get("dataset_token")
     if not token:
         abort(404, description="No hay dataset activo en la sesión.")
     payload = dataset_cache.get(token)
     if payload is None:
         abort(410, description="El dataset ha expirado.")
-    return payload
+    return token, payload
 
 
-def _filters_from_request():
-    """Acepta los filtros tanto desde JSON (POST) como desde query string (GET)."""
+def _current_payload() -> Dict[str, Any]:
+    return _current_token_and_payload()[1]
+
+
+def _filters_from_request() -> Dict[str, Any]:
+    """Lee el body JSON para POST; en GET devuelve {}."""
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
         return body if isinstance(body, dict) else {}
     return {}
+
+
+def _filters_signature(filters: Dict[str, Any]) -> str:
+    """Hash determinista de un dict de filtros para usarlo como clave de caché."""
+    try:
+        normalized = json.dumps(filters or {}, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        normalized = repr(filters)
+    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:16]
+
+
+def _memo(key: str, builder):
+    """Wrapper sobre Flask-Caching: si la app no lo expone, calcula sin caché."""
+    cache = current_app.extensions.get("cache") if current_app else None
+    flask_cache = current_app.config.get("FLASK_CACHE_INSTANCE") if current_app else None
+    if flask_cache is None:
+        # Fallback: ejecuta sin cachear.
+        return builder()
+    cached = flask_cache.get(key)
+    if cached is not None:
+        return cached
+    value = builder()
+    flask_cache.set(key, value)
+    return value
 
 
 @api_bp.get("/charts")
@@ -93,9 +125,12 @@ def filter_dataset():
     }
 
     NOTA: NO muta el df cacheado. Cada llamada filtra una copia y la descarta al
-    terminar — el dataset original sigue intacto para futuros filtrados.
+    terminar — el dataset original sigue intacto para futuros filtrados. Las
+    derivaciones (overview, numeric, charts, correlation) se memoizan con
+    Flask-Caching usando (token, filters_signature) como clave; la tabla incluye
+    además page/page_size en su propia clave porque cambia con la paginación.
     """
-    payload = _current_payload()
+    token, payload = _current_token_and_payload()
     body = _filters_from_request()
     raw_filters = body.get("filters") if isinstance(body, dict) else {}
     if not isinstance(raw_filters, dict):
@@ -105,13 +140,34 @@ def filter_dataset():
 
     df_full = payload["df"]
     classification = payload["classification"]
+    sig = _filters_signature(raw_filters)
 
-    filtered = apply_filters(df_full, raw_filters)
-    overview = dataset_overview(filtered, classification)
-    stats_rows = numeric_summary(filtered, classification.get("numeric", []))
-    charts_payload = build_charts(filtered, classification)
-    correlation_payload = correlation_matrix(filtered, classification.get("numeric", []))
-    table_payload = build_page(filtered, page_number, page_size)
+    # El DataFrame filtrado se memoiza por (token, sig) — la operación más cara.
+    def _build_filtered():
+        return apply_filters(df_full, raw_filters)
+
+    filtered = _memo(f"flt:{token}:{sig}", _build_filtered)
+
+    overview = _memo(
+        f"ovw:{token}:{sig}",
+        lambda: dataset_overview(filtered, classification),
+    )
+    stats_rows = _memo(
+        f"num:{token}:{sig}",
+        lambda: numeric_summary(filtered, classification.get("numeric", [])),
+    )
+    charts_payload = _memo(
+        f"chr:{token}:{sig}",
+        lambda: build_charts(filtered, classification),
+    )
+    correlation_payload = _memo(
+        f"cor:{token}:{sig}",
+        lambda: correlation_matrix(filtered, classification.get("numeric", [])),
+    )
+    table_payload = _memo(
+        f"tbl:{token}:{sig}:{page_number}:{page_size}",
+        lambda: build_page(filtered, page_number, page_size),
+    )
 
     return jsonify(
         {
