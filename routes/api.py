@@ -6,6 +6,7 @@ from flask import Blueprint, abort, jsonify, request, session
 
 from core.cache import dataset_cache
 from core.chart_builder import build_charts
+from core.correlation import correlation_matrix
 from core.filter_engine import apply_filters
 from core.stats import dataset_overview, numeric_summary
 from core.table_builder import page as build_page
@@ -69,9 +70,21 @@ def filter_options():
     )
 
 
+@api_bp.get("/correlation")
+def correlation():
+    """Matriz de correlación de Pearson sobre las columnas numéricas activas."""
+    payload = _current_payload()
+    return jsonify(
+        payload.get(
+            "correlation",
+            {"available": False, "columns": [], "matrix": []},
+        )
+    )
+
+
 @api_bp.post("/filter")
 def filter_dataset():
-    """Aplica filtros y devuelve overview/stats/charts/table recalculados.
+    """Aplica filtros y devuelve overview/stats/charts/correlation/table recalculados.
 
     Body JSON: {
       "filters": {"categorical": {...}, "numeric": {...}, "temporal": {...}},
@@ -97,6 +110,7 @@ def filter_dataset():
     overview = dataset_overview(filtered, classification)
     stats_rows = numeric_summary(filtered, classification.get("numeric", []))
     charts_payload = build_charts(filtered, classification)
+    correlation_payload = correlation_matrix(filtered, classification.get("numeric", []))
     table_payload = build_page(filtered, page_number, page_size)
 
     return jsonify(
@@ -104,6 +118,7 @@ def filter_dataset():
             "overview": overview,
             "numeric": stats_rows,
             "charts": charts_payload,
+            "correlation": correlation_payload,
             "table": table_payload,
             "filtered_rows": int(len(filtered)),
             "total_rows": int(len(df_full)),

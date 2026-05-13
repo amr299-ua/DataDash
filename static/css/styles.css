@@ -257,3 +257,65 @@ footer {
     margin-top: 3rem;
     color: var(--text-muted);
 }
+
+/* ---------- Heatmap de correlación (CSS-grid puro) ---------- */
+.hm-grid {
+    display: grid;
+    grid-auto-rows: minmax(38px, 1fr);
+    gap: 2px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    font-size: 0.75rem;
+}
+.hm-corner {
+    background: var(--surface-muted);
+}
+.hm-col-header,
+.hm-row-header {
+    background: var(--surface-muted);
+    color: var(--text);
+    font-weight: 600;
+    padding: 0.35rem 0.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+}
+.hm-col-header {
+    justify-content: center;
+}
+.hm-row-header {
+    justify-content: flex-end;
+}
+.hm-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.25rem;
+    font-weight: 500;
+}
+.hm-cell:hover {
+    outline: 2px solid var(--brand);
+    outline-offset: -2px;
+    z-index: 1;
+}
+.hm-legend-bar {
+    display: inline-block;
+    width: 60px;
+    height: 10px;
+    border-radius: 2px;
+    background: linear-gradient(to right, rgb(220, 38, 38), rgb(248, 250, 252));
+}
+.hm-legend-bar--pos {
+    background: linear-gradient(to right, rgb(248, 250, 252), rgb(29, 78, 216));
+}
+[data-theme="dark"] .hm-legend-bar {
+    background: linear-gradient(to right, rgb(248, 113, 113), rgb(30, 41, 59));
+}
+[data-theme="dark"] .hm-legend-bar--pos {
+    background: linear-gradient(to right, rgb(30, 41, 59), rgb(96, 165, 250));
+}

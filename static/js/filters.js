@@ -278,6 +278,10 @@
         if (window.Dashboard && typeof window.Dashboard.renderCharts === 'function') {
             window.Dashboard.renderCharts(data.charts || []);
         }
+        if (window.Dashboard && window.Dashboard.Heatmap &&
+            typeof window.Dashboard.Heatmap.render === 'function') {
+            window.Dashboard.Heatmap.render(data.correlation || null);
+        }
         if (window.DataTable && typeof window.DataTable.renderPage === 'function') {
             window.DataTable.renderPage(data.table);
         }

@@ -20,6 +20,7 @@ from werkzeug.utils import secure_filename
 from core.cache import dataset_cache
 from core.chart_builder import build_charts
 from core.column_classifier import classify
+from core.correlation import correlation_matrix
 from core.data_cleaner import clean
 from core.data_loader import CSVLoadError, load_dataset, optimize_dtypes
 from core.filter_engine import available_filters
@@ -84,6 +85,7 @@ def upload():
     stats = numeric_summary(df, classification["numeric"])
     charts = build_charts(df, classification)
     filter_options = available_filters(df, classification)
+    correlation = correlation_matrix(df, classification["numeric"])
 
     # Si ya había un dataset previo en sesión, lo desechamos.
     previous_token = session.get("dataset_token")
@@ -98,6 +100,7 @@ def upload():
             "stats": stats,
             "charts": charts,
             "filter_options": filter_options,
+            "correlation": correlation,
             "filename": filename,
         }
     )
@@ -126,6 +129,7 @@ def dashboard():
         charts=payload["charts"],
         classification=payload["classification"],
         filter_options=payload.get("filter_options", {"categorical": [], "numeric": [], "temporal": []}),
+        correlation=payload.get("correlation", {"available": False, "columns": [], "matrix": []}),
     )
 
 
