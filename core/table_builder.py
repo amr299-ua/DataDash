@@ -9,8 +9,27 @@ import numpy as np
 import pandas as pd
 
 
-def page(df: pd.DataFrame, page_number: int, page_size: int) -> Dict[str, Any]:
-    """Devuelve un slice de `df` listo para serializar como JSON."""
+def page(
+    df: pd.DataFrame,
+    page_number: int,
+    page_size: int,
+    search: str | None = None,
+) -> Dict[str, Any]:
+    """Devuelve un slice de `df` listo para serializar como JSON.
+
+    Si `search` no es vacío, filtra primero las filas que contienen el substring
+    (case-insensitive) en cualquier columna textual o numérica.
+    """
+    if search:
+        q = str(search).strip().lower()
+        if q:
+            # Convertimos todo a string una vez y buscamos vectorizadamente.
+            stringified = df.astype(str).apply(lambda col: col.str.lower())
+            mask = stringified.apply(
+                lambda col: col.str.contains(q, na=False, regex=False)
+            ).any(axis=1)
+            df = df.loc[mask].reset_index(drop=True)
+
     page_size = max(1, min(100, int(page_size)))
     n_rows = len(df)
     n_pages = max(1, math.ceil(n_rows / page_size))

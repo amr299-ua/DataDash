@@ -9,10 +9,13 @@
     const paginationEl = document.getElementById('pagination');
     const pageInfoEl = document.getElementById('page-info');
     const pageSizeSelect = document.getElementById('page-size');
+    const searchInput = document.getElementById('table-search');
 
     let currentPage = 1;
     let currentPageSize = parseInt(pageSizeSelect.value, 10) || 25;
     let currentFilters = null;
+    let currentSearch = '';
+    let searchTimer = null;
 
     function escapeHtml(s) {
         const div = document.createElement('div');
@@ -37,7 +40,9 @@
             await loadFiltered(page, pageSize);
             return;
         }
-        const url = '/api/table?page=' + encodeURIComponent(page) + '&page_size=' + encodeURIComponent(pageSize);
+        const url = '/api/table?page=' + encodeURIComponent(page) +
+                    '&page_size=' + encodeURIComponent(pageSize) +
+                    (currentSearch ? '&q=' + encodeURIComponent(currentSearch) : '');
         let res;
         try {
             res = await fetch(url, { credentials: 'same-origin' });
@@ -204,6 +209,17 @@
         currentPage = 1;
         load(currentPage, currentPageSize);
     });
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function () {
+                currentSearch = searchInput.value.trim();
+                currentPage = 1;
+                load(currentPage, currentPageSize);
+            }, 250);
+        });
+    }
 
     // API pública para filters.js
     window.DataTable = {

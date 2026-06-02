@@ -82,7 +82,8 @@ def table():
     payload = _current_payload()
     page_number = request.args.get("page", default=1, type=int) or 1
     page_size = request.args.get("page_size", default=25, type=int) or 25
-    return jsonify(build_page(payload["df"], page_number, page_size))
+    search = request.args.get("q", default=None, type=str) or None
+    return jsonify(build_page(payload["df"], page_number, page_size, search=search))
 
 
 @api_bp.get("/classification")
