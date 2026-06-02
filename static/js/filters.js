@@ -210,6 +210,10 @@
         tbody.innerHTML = rows
             .map(function (r) {
                 function cell(v) { return v === null || v === undefined ? '—' : v; }
+                const outliers = Number(r.outliers || 0);
+                const outlierCell = outliers > 0
+                    ? '<span class="badge bg-warning text-dark">' + outliers.toLocaleString() + '</span>'
+                    : '0';
                 return (
                     '<tr>' +
                     '<td class="fw-semibold">' + escapeHtml(r.column) + '</td>' +
@@ -220,6 +224,7 @@
                     '<td>' + cell(r.min) + '</td>' +
                     '<td>' + cell(r.max) + '</td>' +
                     '<td>' + Number(r.nulls).toLocaleString() + '</td>' +
+                    '<td>' + outlierCell + '</td>' +
                     '</tr>'
                 );
             })

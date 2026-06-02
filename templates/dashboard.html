@@ -164,6 +164,7 @@
                             <th>Mín.</th>
                             <th>Máx.</th>
                             <th>Nulos</th>
+                            <th title="Valores fuera del rango IQR amplificado (k=1.5)">Outliers</th>
                         </tr>
                     </thead>
                     <tbody id="stats-tbody">
@@ -177,6 +178,13 @@
                             <td>{{ row.min if row.min is not none else '—' }}</td>
                             <td>{{ row.max if row.max is not none else '—' }}</td>
                             <td>{{ '{:,}'.format(row.nulls) }}</td>
+                            <td>
+                                {% if row.outliers and row.outliers > 0 %}
+                                    <span class="badge bg-warning text-dark">{{ '{:,}'.format(row.outliers) }}</span>
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

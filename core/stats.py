@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from core._serde import safe_round
+from core.outliers import iqr_outlier_count
 
 
 def numeric_summary(df: pd.DataFrame, numeric_cols: list[str]) -> list[dict[str, Any]]:
@@ -35,6 +36,7 @@ def numeric_summary(df: pd.DataFrame, numeric_cols: list[str]) -> list[dict[str,
                 "min": safe_round(desc.at[col, "min"]),
                 "max": safe_round(desc.at[col, "max"]),
                 "nulls": int(df[col].isna().sum()),
+                "outliers": iqr_outlier_count(df[col]),
             }
         )
     return summaries
