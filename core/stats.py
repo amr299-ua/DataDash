@@ -2,10 +2,11 @@
 """Estadísticas descriptivas vectorizadas."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import numpy as np
 import pandas as pd
+
+from core._serde import safe_round
 
 
 def numeric_summary(df: pd.DataFrame, numeric_cols: List[str]) -> List[Dict[str, Any]]:
@@ -27,11 +28,11 @@ def numeric_summary(df: pd.DataFrame, numeric_cols: List[str]) -> List[Dict[str,
             {
                 "column": col,
                 "count": int(count),
-                "mean": _round(desc.at[col, "mean"]),
-                "median": _round(subset[col].median()),
-                "std": _round(desc.at[col, "std"]),
-                "min": _round(desc.at[col, "min"]),
-                "max": _round(desc.at[col, "max"]),
+                "mean": safe_round(desc.at[col, "mean"]),
+                "median": safe_round(desc.at[col, "50%"]),
+                "std": safe_round(desc.at[col, "std"]),
+                "min": safe_round(desc.at[col, "min"]),
+                "max": safe_round(desc.at[col, "max"]),
                 "nulls": int(df[col].isna().sum()),
             }
         )
@@ -51,13 +52,3 @@ def dataset_overview(df: pd.DataFrame, classification: Dict[str, List[str]]) -> 
     }
 
 
-def _round(value: Any, ndigits: int = 4) -> Optional[float]:
-    if value is None:
-        return None
-    try:
-        v = float(value)
-    except (TypeError, ValueError):
-        return None
-    if np.isnan(v) or np.isinf(v):
-        return None
-    return round(v, ndigits)

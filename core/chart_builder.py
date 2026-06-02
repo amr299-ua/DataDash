@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from core._serde import safe_round
+
 MAX_CATEGORIES = 12
 MAX_HISTOGRAM_BINS = 20
 MAX_CHARTS = 12
@@ -154,7 +156,7 @@ def _time_series(df: pd.DataFrame, t_col: str, n_col: str) -> Optional[Dict[str,
     else:
         labels = [d.isoformat() for d in grouped.index]
 
-    values = [_round(v) for v in grouped.values]
+    values = [safe_round(v) for v in grouped.values]
     palette = _palette(1)
     return {
         "id": f"ts-{_slug(t_col)}-{_slug(n_col)}",
@@ -192,7 +194,7 @@ def _scatter(df: pd.DataFrame, x_col: str, y_col: str) -> Optional[Dict[str, Any
     if len(pair) > SCATTER_MAX_POINTS:
         pair = pair.sample(n=SCATTER_MAX_POINTS, random_state=42)
 
-    points = [{"x": _round(x), "y": _round(y)} for x, y in pair.itertuples(index=False, name=None)]
+    points = [{"x": safe_round(x), "y": safe_round(y)} for x, y in pair.itertuples(index=False, name=None)]
     palette = _palette(1)
     return {
         "id": f"scatter-{_slug(x_col)}-{_slug(y_col)}",
@@ -247,13 +249,3 @@ def _slug(text: str) -> str:
     return s or "col"
 
 
-def _round(value: Any, ndigits: int = 4) -> Optional[float]:
-    if value is None:
-        return None
-    try:
-        v = float(value)
-    except (TypeError, ValueError):
-        return None
-    if np.isnan(v) or np.isinf(v):
-        return None
-    return round(v, ndigits)

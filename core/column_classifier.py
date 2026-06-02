@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -12,8 +12,13 @@ CATEGORICAL_MAX_RATIO = 0.5
 DATETIME_PARSE_THRESHOLD = 0.8
 
 
-def classify(df: pd.DataFrame) -> Dict[str, List[str]]:
-    """Clasifica las columnas. Muta `df` parseando columnas temporales."""
+def classify(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]:
+    """Clasifica las columnas. Devuelve (df_con_fechas_parseadas, clasificación).
+
+    NO muta el `df` de entrada. El DataFrame devuelto puede tener columnas
+    temporales convertidas a dtype datetime; el original permanece intacto.
+    """
+    df = df.copy()
     numeric: List[str] = []
     categorical: List[str] = []
     temporal: List[str] = []
@@ -55,7 +60,7 @@ def classify(df: pd.DataFrame) -> Dict[str, List[str]]:
         else:
             other.append(col)
 
-    return {
+    return df, {
         "numeric": numeric,
         "categorical": categorical,
         "temporal": temporal,

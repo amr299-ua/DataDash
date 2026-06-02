@@ -286,3 +286,60 @@ class TestFlaskCaching:
         store = getattr(flask_cache.cache, "_cache", None)
         if store is not None:
             assert len(store) == 0
+
+
+class TestUploadIsolation:
+    """Uploads concurrentes con el mismo nombre no deben colisionar."""
+
+    def _client(self, tmp_path):
+        from pathlib import Path
+
+        from app import create_app
+        app = create_app()
+        app.config["TESTING"] = True
+        app.config["UPLOAD_FOLDER"] = str(tmp_path)
+        Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)
+        return app, app.test_client()
+
+    def test_two_uploads_same_name_leave_no_residuals(self, tmp_path):
+        from pathlib import Path
+
+        _, client = self._client(tmp_path)
+        csv = b"a,b\n1,2\n3,4\n"
+        for _ in range(2):
+            resp = client.post(
+                "/upload",
+                data={"file": (io.BytesIO(csv), "test.csv")},
+                content_type="multipart/form-data",
+                follow_redirects=False,
+            )
+            assert resp.status_code in (302, 303)
+        leftovers = list(Path(tmp_path).glob("__tmp_*"))
+        assert leftovers == [], f"Residuales: {leftovers}"
+
+    def test_temp_filename_contains_uuid_component(self, tmp_path, monkeypatch):
+        import re
+        from pathlib import Path
+
+        from werkzeug.datastructures import FileStorage
+
+        captured = {}
+        original_save = FileStorage.save
+
+        def spy_save(self, dst, *a, **kw):
+            captured["path"] = str(dst)
+            return original_save(self, dst, *a, **kw)
+
+        monkeypatch.setattr(FileStorage, "save", spy_save)
+
+        _, client = self._client(tmp_path)
+        csv = b"a,b\n1,2\n"
+        client.post(
+            "/upload",
+            data={"file": (io.BytesIO(csv), "test.csv")},
+            content_type="multipart/form-data",
+            follow_redirects=False,
+        )
+        assert "path" in captured
+        name = Path(captured["path"]).name
+        assert re.match(r"__tmp_[0-9a-f]{6,}_test\.csv$", name), name
