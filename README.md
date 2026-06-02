@@ -93,6 +93,17 @@ pip install pip-tools
 pip-compile requirements.in -o requirements.txt
 ```
 
+### Datasets grandes
+
+DataDash hace una **pre-inferencia de tipos** sobre las primeras 5000 filas del
+CSV antes de la lectura completa: esto evita la doble pasada interna de pandas
+y acelera notablemente la carga de archivos cercanos al límite de 50 MB. Si la
+cola del archivo contiene valores que rompen los tipos inferidos, el loader
+vuelve automáticamente al modo simple sin pre-inferencia (sin romper nada).
+
+`pyarrow` está pinneado como dependencia opcional: si está instalado, pandas
+acelera internamente algunas rutas de E/S (e.g. `to_json` para descargas).
+
 ### Variables de entorno
 
 | Variable | Default | Descripción |
