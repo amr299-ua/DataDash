@@ -16,6 +16,7 @@
     let currentFilters = null;
     let currentSearch = '';
     let searchTimer = null;
+    let currentSort = { col: null, dir: null };
 
     function escapeHtml(s) {
         const div = document.createElement('div');
@@ -42,7 +43,11 @@
         }
         const url = '/api/table?page=' + encodeURIComponent(page) +
                     '&page_size=' + encodeURIComponent(pageSize) +
-                    (currentSearch ? '&q=' + encodeURIComponent(currentSearch) : '');
+                    (currentSearch ? '&q=' + encodeURIComponent(currentSearch) : '') +
+                    (currentSort.col
+                        ? '&sort_by=' + encodeURIComponent(currentSort.col) +
+                          '&sort_dir=' + currentSort.dir
+                        : '');
         let res;
         try {
             res = await fetch(url, { credentials: 'same-origin' });
@@ -95,7 +100,13 @@
             '<tr>' +
             data.columns
                 .map(function (c) {
-                    return '<th>' + escapeHtml(c) + '</th>';
+                    const isSorted = c === currentSort.col;
+                    const arrow = isSorted
+                        ? (currentSort.dir === 'asc' ? ' ▲' : ' ▼')
+                        : '';
+                    return '<th data-col="' + escapeHtml(c) + '" class="sortable">' +
+                           escapeHtml(c) +
+                           '<span class="text-muted small">' + arrow + '</span></th>';
                 })
                 .join('') +
             '</tr>';
@@ -220,6 +231,20 @@
             }, 250);
         });
     }
+
+    // Click en cabecera de columna → toggle asc/desc, ciclando a nueva columna.
+    thead.addEventListener('click', function (e) {
+        const th = e.target.closest('th.sortable');
+        if (!th) return;
+        const col = th.dataset.col;
+        if (currentSort.col === col) {
+            currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSort = { col: col, dir: 'asc' };
+        }
+        currentPage = 1;
+        load(currentPage, currentPageSize);
+    });
 
     // API pública para filters.js
     window.DataTable = {

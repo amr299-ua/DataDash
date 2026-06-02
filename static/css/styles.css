@@ -229,6 +229,13 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+#data-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+#data-table th.sortable:hover {
+    background-color: var(--surface-hover);
+}
 
 /* Toggle de tema */
 #theme-toggle {

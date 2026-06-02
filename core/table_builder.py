@@ -14,11 +14,14 @@ def page(
     page_number: int,
     page_size: int,
     search: str | None = None,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
 ) -> Dict[str, Any]:
     """Devuelve un slice de `df` listo para serializar como JSON.
 
-    Si `search` no es vacío, filtra primero las filas que contienen el substring
-    (case-insensitive) en cualquier columna textual o numérica.
+    - `search`: substring case-insensitive aplicado en cualquier columna.
+    - `sort_by` / `sort_dir`: ordena por columna (asc | desc); nulls al final.
+    Columnas inexistentes en `sort_by` se ignoran silenciosamente.
     """
     if search:
         q = str(search).strip().lower()
@@ -29,6 +32,12 @@ def page(
                 lambda col: col.str.contains(q, na=False, regex=False)
             ).any(axis=1)
             df = df.loc[mask].reset_index(drop=True)
+
+    if sort_by and sort_by in df.columns:
+        ascending = (sort_dir or "asc").lower() != "desc"
+        df = df.sort_values(
+            by=sort_by, ascending=ascending, na_position="last"
+        ).reset_index(drop=True)
 
     page_size = max(1, min(100, int(page_size)))
     n_rows = len(df)
