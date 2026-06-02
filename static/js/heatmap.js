@@ -132,8 +132,10 @@
             '</div>';
 
         container.innerHTML =
+            '<div class="hm-scroll">' +
             '<div class="hm-grid" style="grid-template-columns:' + gridTemplate + '">' +
             cells.join('') +
+            '</div>' +
             '</div>' +
             legend +
             note;

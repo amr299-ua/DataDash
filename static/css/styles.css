@@ -309,6 +309,16 @@ footer {
 }
 
 /* ---------- Heatmap de correlación (CSS-grid puro) ---------- */
+.hm-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+}
+@media (max-width: 576px) {
+    .hm-grid {
+        font-size: 0.65rem;
+    }
+}
 .hm-grid {
     display: grid;
     grid-auto-rows: minmax(38px, 1fr);
