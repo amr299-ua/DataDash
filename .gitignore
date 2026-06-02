@@ -40,3 +40,6 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Flask-Caching (FileSystemCache backend)
+cache/

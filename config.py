@@ -19,8 +19,11 @@ class Config:
 
     # Configuración para Flask-Caching. El TTL coincide con DATASET_TTL_SECONDS
     # para que el cache de derivaciones no expire antes que el propio dataset.
+    # Backend configurable por env: DATADASH_CACHE_TYPE (default: SimpleCache).
+    # Para deploys con varios workers usar FileSystemCache + DATADASH_CACHE_DIR.
     FLASK_CACHE_CONFIG = {
-        "CACHE_TYPE": "SimpleCache",
+        "CACHE_TYPE": os.environ.get("DATADASH_CACHE_TYPE", "SimpleCache"),
         "CACHE_DEFAULT_TIMEOUT": DATASET_TTL_SECONDS,
         "CACHE_THRESHOLD": 500,
+        "CACHE_DIR": os.environ.get("DATADASH_CACHE_DIR", str(BASE_DIR / "cache")),
     }

@@ -93,6 +93,31 @@ pip install pip-tools
 pip-compile requirements.in -o requirements.txt
 ```
 
+### Variables de entorno
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `DATADASH_SECRET` | `dev-secret-change-me` (dev) | Secret key Flask. Obligatoria si `DATADASH_ENV=production`. |
+| `DATADASH_ENV` | `development` | `production` fuerza presencia de `DATADASH_SECRET`. |
+| `DATADASH_CACHE_TYPE` | `SimpleCache` | Backend Flask-Caching. `FileSystemCache` se persiste y soporta multi-worker. |
+| `DATADASH_CACHE_DIR` | `<repo>/cache` | Directorio del caché si se usa `FileSystemCache`. |
+
+#### Despliegue con varios workers
+
+`SimpleCache` (default) es process-local. Si despliegas con `gunicorn -w N`,
+cada worker tiene su propio caché de derivaciones, lo que provoca recálculos
+innecesarios. Para compartir caché entre workers sin añadir base de datos:
+
+```bash
+export DATADASH_CACHE_TYPE=FileSystemCache
+export DATADASH_CACHE_DIR=/var/lib/datadash/cache
+```
+
+> Nota: el `DatasetCache` interno (que guarda los DataFrames en memoria) sigue
+> siendo process-local — esto sólo cubre las derivaciones de filtros. Un setup
+> verdaderamente multi-worker requeriría reescribirlo, fuera del alcance de
+> esta versión.
+
 ### Lint y formato
 
 ```bash
