@@ -29,12 +29,12 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li>
-                    <a class="dropdown-item" href="{{ url_for('main.download_csv') }}">
+                    <a class="dropdown-item" href="{{ url_for('downloads.download_csv') }}">
                         <i class="bi bi-filetype-csv me-1"></i> CSV
                     </a>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="{{ url_for('main.download_json') }}">
+                    <a class="dropdown-item" href="{{ url_for('downloads.download_json') }}">
                         <i class="bi bi-filetype-json me-1"></i> JSON
                     </a>
                 </li>
@@ -43,7 +43,7 @@
         <button id="reset-trigger-btn" class="btn btn-outline-secondary" type="button">
             <i class="bi bi-arrow-counterclockwise me-1"></i> Subir otro archivo
         </button>
-        <form id="reset-form" action="{{ url_for('main.reset') }}" method="POST" class="d-none"></form>
+        <form id="reset-form" action="{{ url_for('uploads.reset') }}" method="POST" class="d-none"></form>
     </div>
 </div>
 

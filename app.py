@@ -42,9 +42,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 
     # Importes diferidos para evitar import circular con blueprints que usan config.
     from routes.api import api_bp
-    from routes.main import main_bp
+    from routes.dashboard import dashboard_bp
+    from routes.downloads import downloads_bp
+    from routes.uploads import uploads_bp
 
-    app.register_blueprint(main_bp)
+    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(uploads_bp)
+    app.register_blueprint(downloads_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
 
     _register_error_handlers(app)
@@ -57,7 +61,7 @@ def _register_error_handlers(app: Flask) -> None:
         if request.path.startswith("/api/"):
             return jsonify({"error": "El archivo supera el límite de 50 MB."}), 413
         flash("El archivo supera el límite de 50 MB.", "danger")
-        return redirect(url_for("main.index"))
+        return redirect(url_for("dashboard.index"))
 
     @app.errorhandler(404)
     def not_found(err):
