@@ -265,6 +265,26 @@ footer {
     color: var(--text-muted);
 }
 
+/* ---------- Overlay de carga ---------- */
+.dashboard-overlay {
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.dashboard-overlay-inner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 1.25rem 1.5rem;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+.dashboard-overlay.d-none { display: none !important; }
+
 /* ---------- Pestañas (Bootstrap nav-tabs override) ---------- */
 .nav-tabs {
     border-bottom-color: var(--border);

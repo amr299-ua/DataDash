@@ -242,64 +242,71 @@
 
     async function applyFilters() {
         const { filters, count } = collectFilters();
+        const overlay = document.getElementById('dashboard-overlay');
+        const showOverlay = function () { if (overlay) overlay.classList.remove('d-none'); };
+        const hideOverlay = function () { if (overlay) overlay.classList.add('d-none'); };
+        showOverlay();
         setBusy(true);
-        let res;
         try {
-            res = await fetch('/api/filter', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    filters: filters,
-                    page: 1,
-                    page_size: (window.DataTable && window.DataTable.pageSize) || 25,
-                }),
-            });
-        } catch (err) {
+            let res;
+            try {
+                res = await fetch('/api/filter', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filters: filters,
+                        page: 1,
+                        page_size: (window.DataTable && window.DataTable.pageSize) || 25,
+                    }),
+                });
+            } catch (err) {
+                setStatus('Error de red al aplicar filtros.', 'active');
+                return;
+            }
+            if (!res.ok) {
+                setStatus('Error ' + res.status + ' al aplicar filtros.', 'active');
+                return;
+            }
+            let data;
+            try {
+                data = await res.json();
+            } catch (err) {
+                setStatus('Respuesta inválida del servidor.', 'active');
+                return;
+            }
+
+            renderOverview(data.overview);
+            renderStats(data.numeric);
+            if (window.Dashboard && typeof window.Dashboard.renderCharts === 'function') {
+                window.Dashboard.renderCharts(data.charts || []);
+            }
+            if (window.Dashboard && window.Dashboard.Heatmap &&
+                typeof window.Dashboard.Heatmap.render === 'function') {
+                window.Dashboard.Heatmap.render(data.correlation || null);
+            }
+            if (window.DataTable && typeof window.DataTable.renderPage === 'function') {
+                window.DataTable.renderPage(data.table);
+            }
+            // Persistimos los filtros activos en DataTable para que la paginación
+            // posterior siga respetando el subconjunto.
+            if (window.DataTable && typeof window.DataTable.setFilters === 'function') {
+                window.DataTable.setFilters(count > 0 ? filters : null);
+            }
+
+            if (count === 0) {
+                setStatus('Sin filtros aplicados', 'inactive');
+            } else {
+                setStatus(
+                    'Filtros activos: ' + count + ' · ' +
+                    Number(data.filtered_rows).toLocaleString() + ' / ' +
+                    Number(data.total_rows).toLocaleString() + ' filas',
+                    'active'
+                );
+            }
+        } finally {
             setBusy(false);
-            setStatus('Error de red al aplicar filtros.', 'active');
-            return;
-        }
-        setBusy(false);
-        if (!res.ok) {
-            setStatus('Error ' + res.status + ' al aplicar filtros.', 'active');
-            return;
-        }
-        let data;
-        try {
-            data = await res.json();
-        } catch (err) {
-            setStatus('Respuesta inválida del servidor.', 'active');
-            return;
-        }
-
-        renderOverview(data.overview);
-        renderStats(data.numeric);
-        if (window.Dashboard && typeof window.Dashboard.renderCharts === 'function') {
-            window.Dashboard.renderCharts(data.charts || []);
-        }
-        if (window.Dashboard && window.Dashboard.Heatmap &&
-            typeof window.Dashboard.Heatmap.render === 'function') {
-            window.Dashboard.Heatmap.render(data.correlation || null);
-        }
-        if (window.DataTable && typeof window.DataTable.renderPage === 'function') {
-            window.DataTable.renderPage(data.table);
-        }
-        // Persistimos los filtros activos en DataTable para que la paginación
-        // posterior siga respetando el subconjunto.
-        if (window.DataTable && typeof window.DataTable.setFilters === 'function') {
-            window.DataTable.setFilters(count > 0 ? filters : null);
-        }
-
-        if (count === 0) {
-            setStatus('Sin filtros aplicados', 'inactive');
-        } else {
-            setStatus(
-                'Filtros activos: ' + count + ' · ' +
-                Number(data.filtered_rows).toLocaleString() + ' / ' +
-                Number(data.total_rows).toLocaleString() + ' filas',
-                'active'
-            );
+            hideOverlay();
         }
     }
 
