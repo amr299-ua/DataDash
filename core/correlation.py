@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-import numpy as np
 import pandas as pd
+
+from core._serde import safe_round
 
 MAX_CORRELATION_COLS = 25
 
@@ -43,7 +44,7 @@ def correlation_matrix(df: pd.DataFrame, numeric_cols: List[str]) -> Dict[str, A
         row_vals: List[Optional[float]] = []
         for col_col in cols:
             v = corr.at[row_col, col_col]
-            row_vals.append(_sanitize(v))
+            row_vals.append(_clamp_corr(v))
         matrix.append(row_vals)
 
     return {
@@ -55,18 +56,13 @@ def correlation_matrix(df: pd.DataFrame, numeric_cols: List[str]) -> Dict[str, A
     }
 
 
-def _sanitize(value: Any) -> Optional[float]:
-    if value is None:
+def _clamp_corr(value: Any) -> Optional[float]:
+    """Clampa Pearson a [-1, 1] tras pasarlo por safe_round (NaN/Inf → None)."""
+    v = safe_round(value)
+    if v is None:
         return None
-    try:
-        v = float(value)
-    except (TypeError, ValueError):
-        return None
-    if np.isnan(v) or np.isinf(v):
-        return None
-    # Clamp defensivamente — Pearson siempre cae en [-1, 1] pero redondeos pueden desbordar.
     if v > 1.0:
-        v = 1.0
-    elif v < -1.0:
-        v = -1.0
-    return round(v, 4)
+        return 1.0
+    if v < -1.0:
+        return -1.0
+    return v
