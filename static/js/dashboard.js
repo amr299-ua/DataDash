@@ -17,6 +17,25 @@
     const Dashboard = (window.Dashboard = window.Dashboard || {});
     Dashboard.charts = Dashboard.charts || {};
 
+    // Clasificación del dataset — usada para decidir mensajes de estado vacío.
+    const clsEl = document.getElementById('classification-payload');
+    if (clsEl) {
+        try {
+            Dashboard.classification = JSON.parse(clsEl.textContent);
+        } catch (_) { /* noop */ }
+    }
+
+    function emptyMessage() {
+        const cls = Dashboard.classification || {};
+        const hasNum = (cls.numeric || []).length > 0;
+        const hasCat = (cls.categorical || []).length > 0;
+        const hasTmp = (cls.temporal || []).length > 0;
+        if (!hasNum && !hasCat && !hasTmp) {
+            return 'Las columnas detectadas son de alta cardinalidad o no contienen datos analizables. Prueba con otro archivo.';
+        }
+        return 'No se pudieron generar gráficos automáticos. Aplica filtros para reducir el dataset y vuelve a intentarlo.';
+    }
+
     function escapeHtml(s) {
         const div = document.createElement('div');
         div.textContent = String(s);
@@ -94,7 +113,11 @@
         Dashboard.lastSpecs = {};
 
         if (!Array.isArray(specs) || specs.length === 0) {
-            if (empty) empty.classList.remove('d-none');
+            if (empty) {
+                const txt = document.getElementById('charts-empty-text');
+                if (txt) txt.textContent = emptyMessage();
+                empty.classList.remove('d-none');
+            }
             return;
         }
         if (empty) empty.classList.add('d-none');

@@ -209,7 +209,8 @@
             <h5 class="fw-semibold mb-3"><i class="bi bi-bar-chart-line me-1"></i> Visualizaciones interactivas</h5>
             <div id="charts-grid" class="row g-3"></div>
             <div id="charts-empty" class="alert alert-info d-none">
-                No se pudieron generar gráficos automáticos para este conjunto de datos.
+                <i class="bi bi-info-circle me-1"></i>
+                <span id="charts-empty-text">No se pudieron generar gráficos automáticos para este conjunto de datos.</span>
             </div>
         </div>
     </div>
@@ -282,6 +283,7 @@
 <script id="charts-payload" type="application/json">{{ charts | tojson }}</script>
 <script id="filter-options-payload" type="application/json">{{ filter_options | tojson }}</script>
 <script id="correlation-payload" type="application/json">{{ correlation | tojson }}</script>
+<script id="classification-payload" type="application/json">{{ classification | tojson }}</script>
 {% endblock %}
 
 {% block scripts %}
