@@ -63,8 +63,31 @@ def _sniff_delimiter(sample: str) -> str:
         return best
 
 
+_SAMPLE_ROWS_FOR_DTYPE = 5000
+
+
+def _read_full_csv(
+    path: Path, *, sep: str, encoding: str, dtype: dict | None = None
+) -> pd.DataFrame:
+    """Lectura final del CSV con `dtype` opcional (None = pandas infiere)."""
+    return pd.read_csv(
+        path,
+        sep=sep,
+        encoding=encoding,
+        engine="c",
+        low_memory=False,
+        skip_blank_lines=True,
+        on_bad_lines="skip",
+        dtype=dtype,
+    )
+
+
 def load_csv(path: Path) -> pd.DataFrame:
-    """Carga el CSV ubicado en `path`. Lanza CSVLoadError en caso de fallo."""
+    """Carga el CSV en `path`. Para archivos grandes infiere dtypes a partir de
+    una muestra de `_SAMPLE_ROWS_FOR_DTYPE` filas para evitar la doble pasada de
+    pandas; si la lectura tipada falla (e.g. la cola del archivo cambia el dtype),
+    cae al modo simple sin hints.
+    """
     path = Path(path)
     if not path.exists():
         raise CSVLoadError(f"Archivo no encontrado: {path}")
@@ -75,16 +98,26 @@ def load_csv(path: Path) -> pd.DataFrame:
     delimiter = _sniff_delimiter(sample)
     logger.info("CSV %s — delimiter=%r encoding=%s", path.name, delimiter, encoding)
 
+    df: pd.DataFrame | None = None
     try:
-        df = pd.read_csv(
+        # Paso 1: pre-inferencia sobre una muestra.
+        sample_df = pd.read_csv(
             path,
             sep=delimiter,
             encoding=encoding,
             engine="c",
+            nrows=_SAMPLE_ROWS_FOR_DTYPE,
             low_memory=False,
             skip_blank_lines=True,
             on_bad_lines="skip",
         )
+        dtype_hints = {col: sample_df[col].dtype for col in sample_df.columns}
+        # Paso 2: lectura final con hints.
+        try:
+            df = _read_full_csv(path, sep=delimiter, encoding=encoding, dtype=dtype_hints)
+        except (ValueError, pd.errors.ParserError):
+            # Fallback: tipos heterogéneos al final del archivo. Releemos sin hints.
+            df = _read_full_csv(path, sep=delimiter, encoding=encoding, dtype=None)
     except pd.errors.EmptyDataError as exc:
         raise CSVLoadError("El archivo no contiene columnas analizables.") from exc
     except pd.errors.ParserError as exc:
@@ -92,7 +125,7 @@ def load_csv(path: Path) -> pd.DataFrame:
     except UnicodeDecodeError as exc:
         raise CSVLoadError("Error de codificación al leer el archivo.") from exc
 
-    if df.empty or df.shape[1] == 0:
+    if df is None or df.empty or df.shape[1] == 0:
         raise CSVLoadError("El CSV se leyó pero no contiene datos analizables.")
 
     return df
