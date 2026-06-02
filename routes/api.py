@@ -7,12 +7,13 @@ import hashlib
 import json
 from typing import Any
 
+import pandas as pd
 from flask import Blueprint, abort, current_app, jsonify, request, session
 
 from core.cache import dataset_cache
 from core.chart_builder import build_charts
 from core.correlation import correlation_matrix
-from core.filter_engine import apply_filters
+from core.filter_engine import apply_filters, available_filters
 from core.stats import dataset_overview, numeric_summary
 from core.table_builder import page as build_page
 
@@ -190,5 +191,69 @@ def filter_dataset():
             "table": table_payload,
             "filtered_rows": int(len(filtered)),
             "total_rows": int(len(df_full)),
+        }
+    )
+
+
+_VALID_TYPES = {"numeric", "categorical", "temporal", "other"}
+
+
+@api_bp.post("/reclassify")
+def reclassify():
+    """Mueve columnas entre buckets de clasificación y rederiva todo.
+
+    Body: { "<col>": "numeric" | "categorical" | "temporal" | "other" }
+
+    Columnas inexistentes o tipos inválidos se ignoran silenciosamente (defensivo).
+    Tras la mutación se rederivan overview, stats, charts, correlation y
+    filter_options y se invalida la caché de filtros para el token activo.
+    """
+    _, payload = _current_token_and_payload()
+    overrides = request.get_json(silent=True)
+    if not isinstance(overrides, dict):
+        return jsonify({"error": "Body debe ser un dict {columna: tipo}."}), 400
+
+    df = payload["df"]
+    classification = {k: list(v) for k, v in payload["classification"].items()}
+
+    for col, target in overrides.items():
+        if col not in df.columns or target not in _VALID_TYPES:
+            continue
+        for bucket in classification.values():
+            if col in bucket:
+                bucket.remove(col)
+        if target == "temporal":
+            try:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+            except (TypeError, ValueError):
+                target = "other"
+        elif target == "numeric":
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        classification[target].append(col)
+
+    # Re-deriva todo lo que depende de classification.
+    payload["classification"] = classification
+    payload["overview"] = dataset_overview(df, classification)
+    payload["stats"] = numeric_summary(df, classification["numeric"])
+    payload["charts"] = build_charts(df, classification)
+    payload["correlation"] = correlation_matrix(df, classification["numeric"])
+    payload["filter_options"] = available_filters(df, classification)
+
+    # Invalida caché de derivaciones de filtros (ahora obsoleta).
+    flask_cache = current_app.config.get("FLASK_CACHE_INSTANCE")
+    if flask_cache is not None:
+        try:
+            flask_cache.clear()
+        except Exception:  # noqa: BLE001
+            current_app.logger.warning("No se pudo limpiar Flask-Caching tras reclassify.")
+
+    return jsonify(
+        {
+            "classification": classification,
+            "overview": payload["overview"],
+            "stats": payload["stats"],
+            "charts": payload["charts"],
+            "correlation": payload["correlation"],
+            "filter_options": payload["filter_options"],
         }
     )
