@@ -3,12 +3,22 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import uuid
 from pathlib import Path
 
 import pandas as pd
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from werkzeug.utils import secure_filename
 
 from core.cache import dataset_cache
@@ -93,10 +103,8 @@ def upload():
         try:
             sheets = list_sheets(temp_path)
         except CSVLoadError as exc:
-            try:
+            with contextlib.suppress(OSError):
                 temp_path.unlink(missing_ok=True)
-            except OSError:
-                pass
             flash(str(exc), "danger")
             return redirect(url_for("dashboard.index"))
         if len(sheets) > 1:
@@ -113,7 +121,7 @@ def upload():
 
     try:
         df = load_dataset(temp_path)
-        token = _process_and_persist(df, filename)
+        _process_and_persist(df, filename)
     except CSVLoadError as exc:
         logger.warning("CSV load failure for %s: %s", filename, exc)
         flash(str(exc), "danger")
@@ -129,7 +137,6 @@ def upload():
         except OSError:
             logger.warning("No se pudo eliminar el upload temporal %s", temp_path)
 
-    del token  # silenciamos linter; el token vive en session
     return redirect(url_for("dashboard.dashboard"))
 
 
@@ -188,9 +195,7 @@ def reset():
     # Limpia también cualquier upload pendiente del selector de hoja.
     pending = session.pop("pending_upload", None)
     if pending:
-        try:
+        with contextlib.suppress(OSError):
             Path(pending["path"]).unlink(missing_ok=True)
-        except OSError:
-            pass
     clear_derived_cache()
     return redirect(url_for("dashboard.index"))

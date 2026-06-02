@@ -49,11 +49,13 @@ class TestSheetPicker:
 
 # ----------------------- flujo integrado -----------------------
 
+
 class TestSheetPickerFlow:
     """Excel con varias hojas debe pasar por /upload/sheet antes del dashboard."""
 
     def _client(self, tmp_path):
         from app import create_app
+
         app = create_app()
         app.config["TESTING"] = True
         app.config["UPLOAD_FOLDER"] = str(tmp_path / "uploads")
@@ -69,6 +71,7 @@ class TestSheetPickerFlow:
 
     def test_multi_sheet_upload_redirects_to_picker(self, tmp_path):
         import io as _io
+
         _, client = self._client(tmp_path)
         body = self._multi_sheet_bytes(tmp_path)
         r = client.post(
@@ -82,6 +85,7 @@ class TestSheetPickerFlow:
 
     def test_choose_sheet_renders_options(self, tmp_path):
         import io as _io
+
         _, client = self._client(tmp_path)
         body = self._multi_sheet_bytes(tmp_path)
         client.post(
@@ -96,6 +100,7 @@ class TestSheetPickerFlow:
 
     def test_process_sheet_finalises_dataset(self, tmp_path):
         import io as _io
+
         _, client = self._client(tmp_path)
         body = self._multi_sheet_bytes(tmp_path)
         client.post(
@@ -112,6 +117,7 @@ class TestSheetPickerFlow:
 
     def test_single_sheet_excel_skips_picker(self, tmp_path):
         import io as _io
+
         _, client = self._client(tmp_path)
         path = tmp_path / "one.xlsx"
         pd.DataFrame({"x": [1, 2, 3]}).to_excel(path, index=False, engine="openpyxl")

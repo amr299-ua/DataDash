@@ -42,6 +42,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 
     # Importes diferidos para evitar import circular con blueprints que usan config.
     from routes.api import api_bp
+    from routes.api_custom import api_custom_bp
     from routes.dashboard import dashboard_bp
     from routes.downloads import downloads_bp
     from routes.uploads import uploads_bp
@@ -50,6 +51,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     app.register_blueprint(uploads_bp)
     app.register_blueprint(downloads_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
+    app.register_blueprint(api_custom_bp, url_prefix="/api")
 
     _register_error_handlers(app)
     return app
