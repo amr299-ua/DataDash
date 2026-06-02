@@ -77,7 +77,27 @@ Visita [http://localhost:5000](http://localhost:5000), sube un CSV o Excel y exp
 ### Ejecutar tests
 
 ```bash
-pytest tests/ -v
+pytest
+```
+
+Ejecuta toda la suite con coverage activado (umbral mínimo: 80%).
+
+### Reproducibilidad de dependencias
+
+`requirements.txt` es generado a partir de `requirements.in` con `pip-compile`
+(de [pip-tools](https://pip-tools.readthedocs.io/)). Para actualizar las
+versiones pinneadas:
+
+```bash
+pip install pip-tools
+pip-compile requirements.in -o requirements.txt
+```
+
+### Lint y formato
+
+```bash
+ruff check .       # estilo + bugs estáticos
+black --check .    # verificar formato (omitir --check para aplicarlo)
 ```
 
 ## 📁 Estructura del Proyecto
