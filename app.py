@@ -13,11 +13,9 @@ from config import DEV_DEFAULT_SECRET, Config
 
 # Cache global compartido entre blueprints. Backend SimpleCache (en memoria);
 # no se persiste a disco — coherente con la política "sin base de datos".
-cache = Cache(config={
-    "CACHE_TYPE": "SimpleCache",
-    "CACHE_DEFAULT_TIMEOUT": 600,  # 10 minutos para derivaciones de filtros
-    "CACHE_THRESHOLD": 500,        # cap aproximado de entradas antes de evict
-})
+# La configuración real se aplica en create_app() vía Config.FLASK_CACHE_CONFIG
+# para que el TTL coincida con el del DatasetCache.
+cache = Cache()
 
 
 def create_app(config_class: type[Config] = Config) -> Flask:
@@ -38,8 +36,8 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    # Flask-Caching: inicializa el SimpleCache y lo deja accesible para las rutas.
-    cache.init_app(app)
+    # Flask-Caching: inicializa el SimpleCache (config en Config.FLASK_CACHE_CONFIG).
+    cache.init_app(app, config=app.config["FLASK_CACHE_CONFIG"])
     app.config["FLASK_CACHE_INSTANCE"] = cache
 
     # Importes diferidos para evitar import circular con blueprints que usan config.

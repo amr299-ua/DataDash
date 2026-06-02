@@ -16,3 +16,11 @@ class Config:
     MAX_CHARTS = 12
     DEFAULT_PAGE_SIZE = 25
     JSON_SORT_KEYS = False
+
+    # Configuración para Flask-Caching. El TTL coincide con DATASET_TTL_SECONDS
+    # para que el cache de derivaciones no expire antes que el propio dataset.
+    FLASK_CACHE_CONFIG = {
+        "CACHE_TYPE": "SimpleCache",
+        "CACHE_DEFAULT_TIMEOUT": DATASET_TTL_SECONDS,
+        "CACHE_THRESHOLD": 500,
+    }
