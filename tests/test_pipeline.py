@@ -14,6 +14,7 @@ Se enfocan en la lógica pura de pandas/Python:
 Estos tests están pensados para correrse localmente con `pytest`. No requieren
 ni servidor Flask ni infra externa.
 """
+
 from __future__ import annotations
 
 import math
@@ -34,7 +35,6 @@ from core.data_loader import (
 )
 from core.filter_engine import apply_filters, available_filters
 from core.stats import dataset_overview, numeric_summary
-
 
 # ----------------------- data_cleaner.clean -----------------------
 
@@ -128,10 +128,12 @@ class TestColumnClassifier:
 
 class TestClassifyNoMutation:
     def test_classify_returns_tuple_and_does_not_mutate_input(self):
-        df = pd.DataFrame({
-            "fecha": ["2024-01-01", "2024-01-02", "2024-01-03"],
-            "valor": [1, 2, 3],
-        })
+        df = pd.DataFrame(
+            {
+                "fecha": ["2024-01-01", "2024-01-02", "2024-01-03"],
+                "valor": [1, 2, 3],
+            }
+        )
         original_dtype = df["fecha"].dtype  # object
         new_df, classification = classify(df)
         # El df original NO se mutó.

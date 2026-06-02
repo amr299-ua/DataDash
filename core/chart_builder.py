@@ -1,9 +1,10 @@
 # core/chart_builder.py
 """Construye configuraciones Chart.js a partir del DataFrame clasificado."""
+
 from __future__ import annotations
 
 import colorsys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -16,9 +17,9 @@ MAX_CHARTS = 12
 SCATTER_MAX_POINTS = 2000
 
 
-def build_charts(df: pd.DataFrame, classification: Dict[str, List[str]]) -> List[Dict[str, Any]]:
+def build_charts(df: pd.DataFrame, classification: dict[str, list[str]]) -> list[dict[str, Any]]:
     """Genera hasta MAX_CHARTS visualizaciones a partir de la clasificación."""
-    charts: List[Dict[str, Any]] = []
+    charts: list[dict[str, Any]] = []
     numeric = classification.get("numeric", [])
     categorical = classification.get("categorical", [])
     temporal = classification.get("temporal", [])
@@ -57,7 +58,7 @@ def build_charts(df: pd.DataFrame, classification: Dict[str, List[str]]) -> List
     return charts
 
 
-def _categorical_distribution(df: pd.DataFrame, col: str) -> Optional[Dict[str, Any]]:
+def _categorical_distribution(df: pd.DataFrame, col: str) -> dict[str, Any] | None:
     counts = df[col].dropna().astype(str).value_counts()
     if counts.empty:
         return None
@@ -65,8 +66,8 @@ def _categorical_distribution(df: pd.DataFrame, col: str) -> Optional[Dict[str, 
     if len(counts) > MAX_CATEGORIES:
         top = counts.head(MAX_CATEGORIES - 1)
         other_sum = int(counts.iloc[MAX_CATEGORIES - 1 :].sum())
-        labels: List[str] = [str(x) for x in top.index] + ["Otros"]
-        values: List[int] = [int(v) for v in top.values] + [other_sum]
+        labels: list[str] = [str(x) for x in top.index] + ["Otros"]
+        values: list[int] = [int(v) for v in top.values] + [other_sum]
     else:
         labels = [str(x) for x in counts.index]
         values = [int(v) for v in counts.values]
@@ -98,7 +99,7 @@ def _categorical_distribution(df: pd.DataFrame, col: str) -> Optional[Dict[str, 
     }
 
 
-def _numeric_histogram(df: pd.DataFrame, col: str) -> Optional[Dict[str, Any]]:
+def _numeric_histogram(df: pd.DataFrame, col: str) -> dict[str, Any] | None:
     series = df[col].dropna()
     if series.empty:
         return None
@@ -139,7 +140,7 @@ def _numeric_histogram(df: pd.DataFrame, col: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def _time_series(df: pd.DataFrame, t_col: str, n_col: str) -> Optional[Dict[str, Any]]:
+def _time_series(df: pd.DataFrame, t_col: str, n_col: str) -> dict[str, Any] | None:
     pair = df[[t_col, n_col]].dropna()
     if pair.empty:
         return None
@@ -187,14 +188,16 @@ def _time_series(df: pd.DataFrame, t_col: str, n_col: str) -> Optional[Dict[str,
     }
 
 
-def _scatter(df: pd.DataFrame, x_col: str, y_col: str) -> Optional[Dict[str, Any]]:
+def _scatter(df: pd.DataFrame, x_col: str, y_col: str) -> dict[str, Any] | None:
     pair = df[[x_col, y_col]].dropna()
     if pair.empty:
         return None
     if len(pair) > SCATTER_MAX_POINTS:
         pair = pair.sample(n=SCATTER_MAX_POINTS, random_state=42)
 
-    points = [{"x": safe_round(x), "y": safe_round(y)} for x, y in pair.itertuples(index=False, name=None)]
+    points = [
+        {"x": safe_round(x), "y": safe_round(y)} for x, y in pair.itertuples(index=False, name=None)
+    ]
     palette = _palette(1)
     return {
         "id": f"scatter-{_slug(x_col)}-{_slug(y_col)}",
@@ -221,7 +224,7 @@ def _scatter(df: pd.DataFrame, x_col: str, y_col: str) -> Optional[Dict[str, Any
     }
 
 
-def _palette(n: int) -> List[str]:
+def _palette(n: int) -> list[str]:
     """Paleta HSL distribuida uniformemente."""
     if n <= 0:
         return []
@@ -233,7 +236,7 @@ def _palette(n: int) -> List[str]:
     return colors
 
 
-def _base_options(show_legend: bool) -> Dict[str, Any]:
+def _base_options(show_legend: bool) -> dict[str, Any]:
     return {
         "responsive": True,
         "maintainAspectRatio": False,
@@ -247,5 +250,3 @@ def _base_options(show_legend: bool) -> Dict[str, Any]:
 def _slug(text: str) -> str:
     s = "".join(c if c.isalnum() else "-" for c in str(text)).strip("-").lower()
     return s or "col"
-
-

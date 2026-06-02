@@ -1,5 +1,6 @@
 # routes/main.py
 """Rutas de cara al usuario: upload y dashboard."""
+
 from __future__ import annotations
 
 import io
@@ -143,7 +144,9 @@ def dashboard():
         stats=payload["stats"],
         charts=payload["charts"],
         classification=payload["classification"],
-        filter_options=payload.get("filter_options", {"categorical": [], "numeric": [], "temporal": []}),
+        filter_options=payload.get(
+            "filter_options", {"categorical": [], "numeric": [], "temporal": []}
+        ),
         correlation=payload.get("correlation", {"available": False, "columns": [], "matrix": []}),
     )
 
@@ -165,6 +168,7 @@ def reset():
 # ----------------------------------------------------------------------
 # Descargas del dataset procesado (CSV/JSON)
 # ----------------------------------------------------------------------
+
 
 def _active_payload_or_404():
     token = session.get("dataset_token")
@@ -189,7 +193,7 @@ def download_csv():
     df = payload["df"]
     # BytesIO con UTF-8 BOM para que Excel abra acentos sin desconfiguraciones.
     buf = io.BytesIO()
-    buf.write("﻿".encode("utf-8"))
+    buf.write("﻿".encode())
     df.to_csv(buf, index=False, encoding="utf-8")
     buf.seek(0)
     filename = _processed_stem(payload.get("filename", "dataset")) + ".csv"
@@ -217,7 +221,7 @@ def download_json():
         "columns": [str(c) for c in df.columns],
         "classification": payload.get("classification", {}),
     }
-    wrapper = '{"meta":' + json.dumps(meta, ensure_ascii=False) + ',"data":' + body + '}'
+    wrapper = '{"meta":' + json.dumps(meta, ensure_ascii=False) + ',"data":' + body + "}"
     filename = _processed_stem(payload.get("filename", "dataset")) + ".json"
     return Response(
         wrapper,

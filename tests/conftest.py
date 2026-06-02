@@ -2,6 +2,7 @@
 """Configuración común de pytest. Añade la raíz del proyecto al sys.path para
 que los tests puedan importar `core.*` sin instalar el paquete.
 """
+
 from __future__ import annotations
 
 import sys

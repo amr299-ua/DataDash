@@ -1,11 +1,12 @@
 # core/cache.py
 """Cache de datasets en memoria, thread-safe. Sin persistencia por diseño."""
+
 from __future__ import annotations
 
 import threading
 import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class DatasetCache:
@@ -16,17 +17,17 @@ class DatasetCache:
     """
 
     def __init__(self, ttl_seconds: int = 3600) -> None:
-        self._store: Dict[str, Dict[str, Any]] = {}
+        self._store: dict[str, dict[str, Any]] = {}
         self._ttl = ttl_seconds
         self._lock = threading.Lock()
 
-    def put(self, payload: Dict[str, Any]) -> str:
+    def put(self, payload: dict[str, Any]) -> str:
         token = uuid.uuid4().hex
         with self._lock:
             self._store[token] = {"payload": payload, "last_access": time.time()}
         return token
 
-    def get(self, token: str) -> Optional[Dict[str, Any]]:
+    def get(self, token: str) -> dict[str, Any] | None:
         if not token:
             return None
         with self._lock:

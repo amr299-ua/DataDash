@@ -1,5 +1,6 @@
 # tests/test_serde.py
 """Tests para utilidades de serialización JSON-safe."""
+
 from __future__ import annotations
 
 import math

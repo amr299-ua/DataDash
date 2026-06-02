@@ -1,5 +1,6 @@
 # app.py
 """Punto de entrada Flask. Factory pattern, blueprints, error handlers."""
+
 from __future__ import annotations
 
 import logging
@@ -9,7 +10,6 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, url
 from flask_caching import Cache
 
 from config import DEV_DEFAULT_SECRET, Config
-
 
 # Cache global compartido entre blueprints. Backend SimpleCache (en memoria);
 # no se persiste a disco — coherente con la política "sin base de datos".

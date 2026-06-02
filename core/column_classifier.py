@@ -1,9 +1,9 @@
 # core/column_classifier.py
 """Clasifica columnas como numéricas, categóricas, temporales o de alta cardinalidad."""
+
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -12,17 +12,17 @@ CATEGORICAL_MAX_RATIO = 0.5
 DATETIME_PARSE_THRESHOLD = 0.8
 
 
-def classify(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]:
+def classify(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, list[str]]]:
     """Clasifica las columnas. Devuelve (df_con_fechas_parseadas, clasificación).
 
     NO muta el `df` de entrada. El DataFrame devuelto puede tener columnas
     temporales convertidas a dtype datetime; el original permanece intacto.
     """
     df = df.copy()
-    numeric: List[str] = []
-    categorical: List[str] = []
-    temporal: List[str] = []
-    other: List[str] = []
+    numeric: list[str] = []
+    categorical: list[str] = []
+    temporal: list[str] = []
+    other: list[str] = []
     n_rows = max(1, len(df))
 
     for col in df.columns:
@@ -68,7 +68,7 @@ def classify(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, List[str]]]:
     }
 
 
-def _try_parse_datetime(series: pd.Series) -> Optional[pd.Series]:
+def _try_parse_datetime(series: pd.Series) -> pd.Series | None:
     """Parsea como datetime si al menos DATETIME_PARSE_THRESHOLD de la muestra es válido."""
     sample = series.dropna()
     if sample.empty:

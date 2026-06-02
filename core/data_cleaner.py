@@ -1,11 +1,26 @@
 # core/data_cleaner.py
 """Limpieza ligera: normaliza nulos, elimina columnas vacías."""
+
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
-_NULL_TOKENS = {"", "NULL", "null", "NaN", "nan", "N/A", "n/a", "NA", "na", "None", "none", "-", "--"}
+_NULL_TOKENS = {
+    "",
+    "NULL",
+    "null",
+    "NaN",
+    "nan",
+    "N/A",
+    "n/a",
+    "NA",
+    "na",
+    "None",
+    "none",
+    "-",
+    "--",
+}
 
 
 def clean(df: pd.DataFrame) -> pd.DataFrame:

@@ -1,9 +1,10 @@
 # core/table_builder.py
 """Payloads paginados para la tabla del frontend."""
+
 from __future__ import annotations
 
 import math
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ def page(
     search: str | None = None,
     sort_by: str | None = None,
     sort_dir: str | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Devuelve un slice de `df` listo para serializar como JSON.
 
     - `search`: substring case-insensitive aplicado en cualquier columna.
@@ -28,16 +29,16 @@ def page(
         if q:
             # Convertimos todo a string una vez y buscamos vectorizadamente.
             stringified = df.astype(str).apply(lambda col: col.str.lower())
-            mask = stringified.apply(
-                lambda col: col.str.contains(q, na=False, regex=False)
-            ).any(axis=1)
+            mask = stringified.apply(lambda col: col.str.contains(q, na=False, regex=False)).any(
+                axis=1
+            )
             df = df.loc[mask].reset_index(drop=True)
 
     if sort_by and sort_by in df.columns:
         ascending = (sort_dir or "asc").lower() != "desc"
-        df = df.sort_values(
-            by=sort_by, ascending=ascending, na_position="last"
-        ).reset_index(drop=True)
+        df = df.sort_values(by=sort_by, ascending=ascending, na_position="last").reset_index(
+            drop=True
+        )
 
     page_size = max(1, min(100, int(page_size)))
     n_rows = len(df)

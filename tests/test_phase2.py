@@ -6,11 +6,11 @@
 
 Todos los tests son locales y no requieren red ni Docker.
 """
+
 from __future__ import annotations
 
 import io
 import json
-from typing import Tuple
 from unittest.mock import patch
 
 import numpy as np
@@ -19,8 +19,8 @@ import pytest
 
 from core.correlation import MAX_CORRELATION_COLS, correlation_matrix
 
-
 # ----------------------- correlation -----------------------
+
 
 class TestCorrelationMatrix:
     def test_returns_unavailable_when_fewer_than_two_numeric_cols(self):
@@ -68,10 +68,12 @@ class TestCorrelationMatrix:
         assert result["matrix"][1][0] is None
 
     def test_nan_values_are_sanitized(self):
-        df = pd.DataFrame({
-            "x": [1.0, 2.0, 3.0, 4.0, np.nan],
-            "y": [2.0, 4.0, 6.0, np.nan, 10.0],
-        })
+        df = pd.DataFrame(
+            {
+                "x": [1.0, 2.0, 3.0, 4.0, np.nan],
+                "y": [2.0, 4.0, 6.0, np.nan, 10.0],
+            }
+        )
         result = correlation_matrix(df, ["x", "y"])
         # No debe haber NaN ni Inf en el JSON resultante.
         for row in result["matrix"]:
@@ -115,10 +117,12 @@ class TestCorrelationMatrix:
 
 # ----------------------- Flask end-to-end (download) -----------------------
 
+
 @pytest.fixture
-def app_client() -> Tuple[object, object]:
+def app_client() -> tuple[object, object]:
     """Crea una app Flask aislada con un dataset preinyectado en sesión."""
-    from app import cache as flask_cache, create_app
+    from app import cache as flask_cache
+    from app import create_app
     from core.cache import dataset_cache
 
     app = create_app()
@@ -128,14 +132,16 @@ def app_client() -> Tuple[object, object]:
     # Limpia caches por si otro test los dejó sucios.
     flask_cache.clear()
 
-    df = pd.DataFrame({
-        "id": [1, 2, 3, 4, 5],
-        "precio": [10.5, 20.0, 30.5, np.nan, 21.0],
-        "categoria": ["A", "B", "A", "C", "B"],
-        "fecha": pd.to_datetime(
-            ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]
-        ),
-    })
+    df = pd.DataFrame(
+        {
+            "id": [1, 2, 3, 4, 5],
+            "precio": [10.5, 20.0, 30.5, np.nan, 21.0],
+            "categoria": ["A", "B", "A", "C", "B"],
+            "fecha": pd.to_datetime(
+                ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]
+            ),
+        }
+    )
     classification = {
         "numeric": ["id", "precio"],
         "categorical": ["categoria"],
@@ -145,9 +151,16 @@ def app_client() -> Tuple[object, object]:
     payload = {
         "df": df,
         "classification": classification,
-        "overview": {"rows": 5, "columns": 4, "numeric_count": 2,
-                     "categorical_count": 1, "temporal_count": 1, "other_count": 0,
-                     "total_nulls": 1, "memory_mb": 0.001},
+        "overview": {
+            "rows": 5,
+            "columns": 4,
+            "numeric_count": 2,
+            "categorical_count": 1,
+            "temporal_count": 1,
+            "other_count": 0,
+            "total_nulls": 1,
+            "memory_mb": 0.001,
+        },
         "stats": [],
         "charts": [],
         "filter_options": {"categorical": [], "numeric": [], "temporal": []},
@@ -203,6 +216,7 @@ class TestDownloadEndpoints:
 
     def test_download_404_without_active_dataset(self):
         from app import create_app
+
         app = create_app()
         client = app.test_client()
         resp = client.get("/download/csv")
@@ -227,7 +241,10 @@ class TestFlaskCaching:
         flask_cache.clear()
 
         # Espiamos build_charts: si la caché funciona, debe llamarse 1 sola vez.
-        with patch("routes.api.build_charts", wraps=__import__("core.chart_builder", fromlist=["build_charts"]).build_charts) as spy:
+        with patch(
+            "routes.api.build_charts",
+            wraps=__import__("core.chart_builder", fromlist=["build_charts"]).build_charts,
+        ) as spy:
             filters_body = {"filters": {}, "page": 1, "page_size": 25}
             r1 = client.post(
                 "/api/filter",
@@ -251,7 +268,10 @@ class TestFlaskCaching:
         app, client = app_client
         flask_cache.clear()
 
-        with patch("routes.api.build_charts", wraps=__import__("core.chart_builder", fromlist=["build_charts"]).build_charts) as spy:
+        with patch(
+            "routes.api.build_charts",
+            wraps=__import__("core.chart_builder", fromlist=["build_charts"]).build_charts,
+        ) as spy:
             r1 = client.post(
                 "/api/filter",
                 data=json.dumps({"filters": {}, "page": 1, "page_size": 25}),
@@ -259,10 +279,13 @@ class TestFlaskCaching:
             )
             r2 = client.post(
                 "/api/filter",
-                data=json.dumps({
-                    "filters": {"categorical": {"categoria": ["A"]}},
-                    "page": 1, "page_size": 25,
-                }),
+                data=json.dumps(
+                    {
+                        "filters": {"categorical": {"categoria": ["A"]}},
+                        "page": 1,
+                        "page_size": 25,
+                    }
+                ),
                 content_type="application/json",
             )
             assert r1.status_code == 200 and r2.status_code == 200
@@ -295,6 +318,7 @@ class TestUploadIsolation:
         from pathlib import Path
 
         from app import create_app
+
         app = create_app()
         app.config["TESTING"] = True
         app.config["UPLOAD_FOLDER"] = str(tmp_path)

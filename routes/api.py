@@ -1,10 +1,11 @@
 # routes/api.py
 """API JSON interna que alimenta el dashboard."""
+
 from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from flask import Blueprint, abort, current_app, jsonify, request, session
 
@@ -18,7 +19,7 @@ from core.table_builder import page as build_page
 api_bp = Blueprint("api", __name__)
 
 
-def _current_token_and_payload() -> Tuple[str, Dict[str, Any]]:
+def _current_token_and_payload() -> tuple[str, dict[str, Any]]:
     token = session.get("dataset_token")
     if not token:
         abort(404, description="No hay dataset activo en la sesión.")
@@ -28,11 +29,11 @@ def _current_token_and_payload() -> Tuple[str, Dict[str, Any]]:
     return token, payload
 
 
-def _current_payload() -> Dict[str, Any]:
+def _current_payload() -> dict[str, Any]:
     return _current_token_and_payload()[1]
 
 
-def _filters_from_request() -> Dict[str, Any]:
+def _filters_from_request() -> dict[str, Any]:
     """Lee el body JSON para POST; en GET devuelve {}."""
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
@@ -40,7 +41,7 @@ def _filters_from_request() -> Dict[str, Any]:
     return {}
 
 
-def _filters_signature(filters: Dict[str, Any]) -> str:
+def _filters_signature(filters: dict[str, Any]) -> str:
     """Hash determinista de un dict de filtros para usarlo como clave de caché."""
     try:
         normalized = json.dumps(filters or {}, sort_keys=True, default=str)
@@ -51,7 +52,6 @@ def _filters_signature(filters: Dict[str, Any]) -> str:
 
 def _memo(key: str, builder):
     """Wrapper sobre Flask-Caching: si la app no lo expone, calcula sin caché."""
-    cache = current_app.extensions.get("cache") if current_app else None
     flask_cache = current_app.config.get("FLASK_CACHE_INSTANCE") if current_app else None
     if flask_cache is None:
         # Fallback: ejecuta sin cachear.
@@ -85,10 +85,16 @@ def table():
     search = request.args.get("q", default=None, type=str) or None
     sort_by = request.args.get("sort_by", default=None, type=str) or None
     sort_dir = request.args.get("sort_dir", default=None, type=str) or None
-    return jsonify(build_page(
-        payload["df"], page_number, page_size,
-        search=search, sort_by=sort_by, sort_dir=sort_dir,
-    ))
+    return jsonify(
+        build_page(
+            payload["df"],
+            page_number,
+            page_size,
+            search=search,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+        )
+    )
 
 
 @api_bp.get("/classification")

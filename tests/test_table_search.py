@@ -1,5 +1,6 @@
 # tests/test_table_search.py
 """Búsqueda libre en la tabla paginada."""
+
 from __future__ import annotations
 
 import pandas as pd

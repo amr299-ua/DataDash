@@ -5,9 +5,10 @@ El frontend renderiza la matriz como grid CSS (sin librería extra). Aquí solo
 producimos un payload JSON-safe: columnas + matriz cuadrada con valores en
 [-1, 1] o None para celdas indefinidas (varianza cero, NaN, etc.).
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -16,7 +17,7 @@ from core._serde import safe_round
 MAX_CORRELATION_COLS = 25
 
 
-def correlation_matrix(df: pd.DataFrame, numeric_cols: List[str]) -> Dict[str, Any]:
+def correlation_matrix(df: pd.DataFrame, numeric_cols: list[str]) -> dict[str, Any]:
     """Calcula Pearson entre las columnas numéricas indicadas.
 
     - Si hay menos de 2 columnas numéricas, devuelve `{available: False, ...}`
@@ -26,7 +27,12 @@ def correlation_matrix(df: pd.DataFrame, numeric_cols: List[str]) -> Dict[str, A
     """
     cols = [c for c in numeric_cols if c in df.columns]
     if len(cols) < 2:
-        return {"available": False, "reason": "Se necesitan al menos 2 columnas numéricas.", "columns": [], "matrix": []}
+        return {
+            "available": False,
+            "reason": "Se necesitan al menos 2 columnas numéricas.",
+            "columns": [],
+            "matrix": [],
+        }
 
     truncated = False
     if len(cols) > MAX_CORRELATION_COLS:
@@ -39,9 +45,9 @@ def correlation_matrix(df: pd.DataFrame, numeric_cols: List[str]) -> Dict[str, A
     # Reindex para garantizar el mismo orden de filas/columnas que `cols`.
     corr = corr.reindex(index=cols, columns=cols)
 
-    matrix: List[List[Optional[float]]] = []
+    matrix: list[list[float | None]] = []
     for row_col in cols:
-        row_vals: List[Optional[float]] = []
+        row_vals: list[float | None] = []
         for col_col in cols:
             v = corr.at[row_col, col_col]
             row_vals.append(_clamp_corr(v))
@@ -56,7 +62,7 @@ def correlation_matrix(df: pd.DataFrame, numeric_cols: List[str]) -> Dict[str, A
     }
 
 
-def _clamp_corr(value: Any) -> Optional[float]:
+def _clamp_corr(value: Any) -> float | None:
     """Clampa Pearson a [-1, 1] tras pasarlo por safe_round (NaN/Inf → None)."""
     v = safe_round(value)
     if v is None:

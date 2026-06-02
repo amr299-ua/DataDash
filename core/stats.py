@@ -1,15 +1,16 @@
 # core/stats.py
 """Estadísticas descriptivas vectorizadas."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 
 from core._serde import safe_round
 
 
-def numeric_summary(df: pd.DataFrame, numeric_cols: List[str]) -> List[Dict[str, Any]]:
+def numeric_summary(df: pd.DataFrame, numeric_cols: list[str]) -> list[dict[str, Any]]:
     """Una fila por cada columna numérica con métricas básicas."""
     if not numeric_cols:
         return []
@@ -17,7 +18,7 @@ def numeric_summary(df: pd.DataFrame, numeric_cols: List[str]) -> List[Dict[str,
     subset = df[numeric_cols]
     desc = subset.describe().T  # vectorizado
 
-    summaries: List[Dict[str, Any]] = []
+    summaries: list[dict[str, Any]] = []
     for col in numeric_cols:
         if col not in desc.index:
             continue
@@ -39,7 +40,7 @@ def numeric_summary(df: pd.DataFrame, numeric_cols: List[str]) -> List[Dict[str,
     return summaries
 
 
-def dataset_overview(df: pd.DataFrame, classification: Dict[str, List[str]]) -> Dict[str, Any]:
+def dataset_overview(df: pd.DataFrame, classification: dict[str, list[str]]) -> dict[str, Any]:
     return {
         "rows": int(len(df)),
         "columns": int(df.shape[1]),
@@ -48,7 +49,5 @@ def dataset_overview(df: pd.DataFrame, classification: Dict[str, List[str]]) -> 
         "temporal_count": len(classification.get("temporal", [])),
         "other_count": len(classification.get("other", [])),
         "total_nulls": int(df.isna().sum().sum()),
-        "memory_mb": round(df.memory_usage(deep=True).sum() / (1024 ** 2), 3),
+        "memory_mb": round(df.memory_usage(deep=True).sum() / (1024**2), 3),
     }
-
-

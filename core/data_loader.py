@@ -5,12 +5,12 @@
 el DataFrame, el resto del pipeline (clean → classify → optimize_dtypes) no necesita
 saber si el origen fue CSV o XLSX.
 """
+
 from __future__ import annotations
 
 import csv
 import logging
 from pathlib import Path
-from typing import Tuple
 
 import pandas as pd
 
@@ -31,12 +31,12 @@ class CSVLoadError(Exception):
 DatasetLoadError = CSVLoadError
 
 
-def _read_sample(path: Path, n_bytes: int = 16384) -> Tuple[str, str]:
+def _read_sample(path: Path, n_bytes: int = 16384) -> tuple[str, str]:
     """Lee una muestra del archivo probando codificaciones comunes."""
     last_exc: Exception | None = None
     for encoding in _ENCODINGS:
         try:
-            with open(path, "r", encoding=encoding) as f:
+            with open(path, encoding=encoding) as f:
                 sample = f.read(n_bytes)
             return sample, encoding
         except UnicodeDecodeError as exc:
@@ -114,15 +114,11 @@ def load_excel(path: Path) -> pd.DataFrame:
     try:
         df = pd.read_excel(path, engine="openpyxl", sheet_name=0)
     except ImportError as exc:
-        raise CSVLoadError(
-            "Falta la dependencia 'openpyxl' para leer archivos Excel."
-        ) from exc
+        raise CSVLoadError("Falta la dependencia 'openpyxl' para leer archivos Excel.") from exc
     except ValueError as exc:
         raise CSVLoadError(f"No se pudo leer el archivo Excel: {exc}") from exc
     except Exception as exc:  # openpyxl puede lanzar BadZipFile, InvalidFileException, etc.
-        raise CSVLoadError(
-            f"Archivo Excel inválido o corrupto: {exc.__class__.__name__}"
-        ) from exc
+        raise CSVLoadError(f"Archivo Excel inválido o corrupto: {exc.__class__.__name__}") from exc
 
     if df.empty or df.shape[1] == 0:
         raise CSVLoadError("El Excel se leyó pero no contiene datos analizables.")

@@ -13,9 +13,11 @@ Reglas de filtrado:
 
 Filtros desconocidos o columnas inexistentes se ignoran silenciosamente (defensivo).
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import contextlib
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -25,11 +27,9 @@ import pandas as pd
 CATEGORICAL_MAX_OPTIONS = 50
 
 
-def available_filters(
-    df: pd.DataFrame, classification: Dict[str, List[str]]
-) -> Dict[str, Any]:
+def available_filters(df: pd.DataFrame, classification: dict[str, list[str]]) -> dict[str, Any]:
     """Devuelve metadata serializable JSON para alimentar los controles del frontend."""
-    filters: Dict[str, Any] = {
+    filters: dict[str, Any] = {
         "categorical": [],
         "numeric": [],
         "temporal": [],
@@ -102,7 +102,7 @@ def available_filters(
     return filters
 
 
-def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
+def apply_filters(df: pd.DataFrame, filters: dict[str, Any]) -> pd.DataFrame:
     """Aplica el diccionario de filtros del frontend de forma vectorizada.
 
     Construye una máscara booleana acumulada con `&=` para mantener O(n) en filas.
@@ -131,15 +131,11 @@ def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
         lo = bounds.get("min")
         hi = bounds.get("max")
         if lo is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 mask &= col_num >= float(lo)
-            except (TypeError, ValueError):
-                pass
         if hi is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 mask &= col_num <= float(hi)
-            except (TypeError, ValueError):
-                pass
 
     # Temporales — { col: {"start": iso, "end": iso} }
     for col, bounds in (filters.get("temporal") or {}).items():
@@ -149,14 +145,10 @@ def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
         start = bounds.get("start")
         end = bounds.get("end")
         if start:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 mask &= col_dt >= pd.Timestamp(start)
-            except (TypeError, ValueError):
-                pass
         if end:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 mask &= col_dt <= pd.Timestamp(end)
-            except (TypeError, ValueError):
-                pass
 
     return df.loc[mask].reset_index(drop=True)

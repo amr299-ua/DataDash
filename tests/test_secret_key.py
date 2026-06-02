@@ -1,5 +1,6 @@
 # tests/test_secret_key.py
 """Garantiza que el SECRET_KEY no es el default en modo no-debug."""
+
 from __future__ import annotations
 
 import importlib

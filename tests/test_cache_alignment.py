@@ -1,5 +1,6 @@
 # tests/test_cache_alignment.py
 """El TTL de Flask-Caching debe coincidir con el del dataset principal."""
+
 from __future__ import annotations
 
 
