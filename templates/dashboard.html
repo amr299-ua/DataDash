@@ -58,7 +58,13 @@
         </div>
         <div class="card-body">
             <div id="filters-container" class="row g-3"></div>
-            <div class="d-flex gap-2 mt-3 justify-content-end">
+            <div class="d-flex flex-wrap gap-3 mt-3 align-items-center justify-content-end">
+                <div class="form-check form-switch me-auto" title="OR: cumple al menos un filtro · AND (por defecto): cumple todos">
+                    <input class="form-check-input" type="checkbox" role="switch" id="filter-or-toggle">
+                    <label class="form-check-label small text-muted" for="filter-or-toggle">
+                        Combinar con <strong>OR</strong>
+                    </label>
+                </div>
                 <button id="clear-filters-btn" type="button" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-x-circle me-1"></i> Limpiar
                 </button>

@@ -105,13 +105,17 @@ def available_filters(df: pd.DataFrame, classification: dict[str, list[str]]) ->
 def apply_filters(df: pd.DataFrame, filters: dict[str, Any]) -> pd.DataFrame:
     """Aplica el diccionario de filtros del frontend de forma vectorizada.
 
-    Construye una máscara booleana acumulada con `&=` para mantener O(n) en filas.
-    Nunca itera por filas.
+    Acumula una máscara por filtro y las combina con AND (default) u OR según
+    `filters["combinator"]`. Nunca itera por filas.
     """
     if not filters or not isinstance(filters, dict):
         return df
 
-    mask = pd.Series(True, index=df.index)
+    combinator = str(filters.get("combinator") or "AND").upper()
+    if combinator not in ("AND", "OR"):
+        combinator = "AND"
+
+    masks: list[pd.Series] = []
 
     # Categóricos — { col: [valor1, valor2, ...] }
     for col, allowed in (filters.get("categorical") or {}).items():
@@ -121,7 +125,7 @@ def apply_filters(df: pd.DataFrame, filters: dict[str, Any]) -> pd.DataFrame:
             continue
         allowed_str = {str(v) for v in allowed}
         col_str = df[col].astype("string")
-        mask &= col_str.isin(allowed_str)
+        masks.append(col_str.isin(allowed_str))
 
     # Numéricos — { col: {"min": x, "max": y} }
     for col, bounds in (filters.get("numeric") or {}).items():
@@ -130,12 +134,14 @@ def apply_filters(df: pd.DataFrame, filters: dict[str, Any]) -> pd.DataFrame:
         col_num = pd.to_numeric(df[col], errors="coerce")
         lo = bounds.get("min")
         hi = bounds.get("max")
+        m = pd.Series(True, index=df.index)
         if lo is not None:
             with contextlib.suppress(TypeError, ValueError):
-                mask &= col_num >= float(lo)
+                m &= col_num >= float(lo)
         if hi is not None:
             with contextlib.suppress(TypeError, ValueError):
-                mask &= col_num <= float(hi)
+                m &= col_num <= float(hi)
+        masks.append(m)
 
     # Temporales — { col: {"start": iso, "end": iso} }
     for col, bounds in (filters.get("temporal") or {}).items():
@@ -144,11 +150,25 @@ def apply_filters(df: pd.DataFrame, filters: dict[str, Any]) -> pd.DataFrame:
         col_dt = pd.to_datetime(df[col], errors="coerce")
         start = bounds.get("start")
         end = bounds.get("end")
+        m = pd.Series(True, index=df.index)
         if start:
             with contextlib.suppress(TypeError, ValueError):
-                mask &= col_dt >= pd.Timestamp(start)
+                m &= col_dt >= pd.Timestamp(start)
         if end:
             with contextlib.suppress(TypeError, ValueError):
-                mask &= col_dt <= pd.Timestamp(end)
+                m &= col_dt <= pd.Timestamp(end)
+        masks.append(m)
 
-    return df.loc[mask].reset_index(drop=True)
+    if not masks:
+        return df
+
+    if combinator == "OR":
+        final = masks[0].copy()
+        for m in masks[1:]:
+            final |= m
+    else:
+        final = masks[0].copy()
+        for m in masks[1:]:
+            final &= m
+
+    return df.loc[final].reset_index(drop=True)

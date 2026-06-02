@@ -180,6 +180,12 @@
             activeCount += 1;
         });
 
+        // Combinador AND (default) u OR según el toggle global.
+        const orToggle = document.getElementById('filter-or-toggle');
+        if (orToggle && orToggle.checked) {
+            filters.combinator = 'OR';
+        }
+
         return { filters: filters, count: activeCount };
     }
 
