@@ -4,9 +4,11 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 
+DEV_DEFAULT_SECRET = "dev-secret-change-me"
+
 
 class Config:
-    SECRET_KEY = os.environ.get("DATADASH_SECRET", "dev-secret-change-me")
+    SECRET_KEY = os.environ.get("DATADASH_SECRET", DEV_DEFAULT_SECRET)
     UPLOAD_FOLDER = str(BASE_DIR / "uploads")
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB
     ALLOWED_EXTENSIONS = {"csv", "xlsx"}

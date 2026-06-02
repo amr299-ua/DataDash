@@ -8,7 +8,7 @@ import os
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 from flask_caching import Cache
 
-from config import Config
+from config import DEV_DEFAULT_SECRET, Config
 
 
 # Cache global compartido entre blueprints. Backend SimpleCache (en memoria);
@@ -23,6 +23,13 @@ cache = Cache(config={
 def create_app(config_class: type[Config] = Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    env = os.environ.get("DATADASH_ENV", "development").lower()
+    if env == "production" and app.config["SECRET_KEY"] == DEV_DEFAULT_SECRET:
+        raise RuntimeError(
+            "DATADASH_SECRET no está definido y DATADASH_ENV=production. "
+            "Exporta DATADASH_SECRET con un valor aleatorio antes de arrancar."
+        )
 
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
