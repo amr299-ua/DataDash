@@ -91,39 +91,56 @@ class TestDataCleaner:
 class TestColumnClassifier:
     def test_numeric_int_and_float(self):
         df = pd.DataFrame({"i": [1, 2, 3], "f": [1.0, 2.0, 3.5]})
-        cls = classify(df)
+        _, cls = classify(df)
         assert set(cls["numeric"]) == {"i", "f"}
         assert cls["categorical"] == []
         assert cls["temporal"] == []
 
     def test_categorical_low_cardinality_strings(self):
         df = pd.DataFrame({"cat": ["a", "b", "a", "c", "b"] * 10})
-        cls = classify(df)
+        _, cls = classify(df)
         assert cls["categorical"] == ["cat"]
         assert cls["numeric"] == []
 
     def test_temporal_iso_dates_detected_and_parsed(self):
         df = pd.DataFrame({"d": ["2024-01-01", "2024-02-15", "2024-03-30", "2024-04-12"]})
-        cls = classify(df)
+        parsed_df, cls = classify(df)
         assert cls["temporal"] == ["d"]
-        assert pd.api.types.is_datetime64_any_dtype(df["d"])
+        assert pd.api.types.is_datetime64_any_dtype(parsed_df["d"])
 
     def test_numeric_id_strings_are_not_misclassified_as_temporal(self):
         # Caso de prueba crítico — IDs como "12345" no deben caer como fechas.
         df = pd.DataFrame({"id": [str(x) for x in range(10000, 10020)]})
-        cls = classify(df)
+        _, cls = classify(df)
         assert cls["temporal"] == []
 
     def test_boolean_column_is_categorical(self):
         df = pd.DataFrame({"b": [True, False, True, True]})
-        cls = classify(df)
+        _, cls = classify(df)
         assert cls["categorical"] == ["b"]
 
     def test_high_cardinality_strings_go_to_other(self):
         # 200 strings únicos, ratio = 1.0 — supera tanto MAX_UNIQUE como MAX_RATIO.
         df = pd.DataFrame({"s": [f"v_{i}" for i in range(200)]})
-        cls = classify(df)
+        _, cls = classify(df)
         assert cls["other"] == ["s"]
+
+
+class TestClassifyNoMutation:
+    def test_classify_returns_tuple_and_does_not_mutate_input(self):
+        df = pd.DataFrame({
+            "fecha": ["2024-01-01", "2024-01-02", "2024-01-03"],
+            "valor": [1, 2, 3],
+        })
+        original_dtype = df["fecha"].dtype  # object
+        new_df, classification = classify(df)
+        # El df original NO se mutó.
+        assert df["fecha"].dtype == original_dtype
+        # El nuevo df SÍ tiene "fecha" como datetime.
+        assert pd.api.types.is_datetime64_any_dtype(new_df["fecha"])
+        # La clasificación es correcta.
+        assert "fecha" in classification["temporal"]
+        assert "valor" in classification["numeric"]
 
 
 # ------------------------- stats module -------------------------
@@ -400,7 +417,7 @@ class TestPipelineSmoke:
         # "nulos_solo" debe desaparecer tras limpieza.
         assert "nulos_solo" not in df.columns
 
-        cls = classify(df)
+        df, cls = classify(df)
         # fecha → temporal; precio,id → numeric; categoria → categorical
         assert "fecha" in cls["temporal"]
         assert "categoria" in cls["categorical"]

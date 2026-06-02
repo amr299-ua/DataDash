@@ -69,7 +69,7 @@ def upload():
         df = clean(df)
         if df.empty or df.shape[1] == 0:
             raise CSVLoadError("El archivo no contiene datos analizables tras la limpieza.")
-        classification = classify(df)
+        df, classification = classify(df)
         df = optimize_dtypes(df)
     except CSVLoadError as exc:
         logger.warning("CSV load failure for %s: %s", filename, exc)
